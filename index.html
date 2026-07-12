@@ -1,0 +1,1954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAID Portfolio Manager</title>
+<style>
+:root {
+  /* ================================================================
+     BRAND COLORS - set KUBRA values here
+     Replace the hex values below with exact KUBRA brand hex codes.
+     Defaults are a neutral, professional slate and navy palette.
+     ================================================================ */
+  --brand-primary: #1e3a5f;      /* navy, headers and primary actions */
+  --brand-primary-hover: #274a76;
+  --brand-accent: #2d5a8c;       /* secondary navy accent */
+  --brand-ink: #1f2733;          /* main text */
+  --brand-muted: #64748b;        /* secondary text */
+  --brand-bg: #eef1f5;           /* app background, cool slate */
+  --brand-surface: #ffffff;      /* cards and table surface */
+  --brand-surface-alt: #f6f8fa;  /* zebra rows, subtle panels */
+  --brand-border: #d8dee6;       /* lines and dividers */
+
+  /* Functional colors (not brand, used for coding item types and states) */
+  --type-risk: #b4232a;
+  --type-assumption: #8a6d1f;
+  --type-issue: #1f6feb;
+  --type-decision: #5a3fa0;
+  --type-action: #0f766e;
+
+  --band-low: #2e7d5b;
+  --band-medium: #b8860b;
+  --band-high: #c05621;
+  --band-critical: #b4232a;
+
+  --priority-high: #b4232a;
+  --priority-medium: #b8860b;
+  --priority-low: #2e7d5b;
+
+  --overdue: #b4232a;
+  --focus: #2d5a8c;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--brand-bg);
+  color: var(--brand-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+button, input, select, textarea { font-family: inherit; font-size: inherit; }
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--brand-border);
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+  padding: 6px 12px;
+  border-radius: 4px;
+}
+button:hover { background: var(--brand-surface-alt); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+button.primary {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+button.primary:hover { background: var(--brand-primary-hover); }
+button.danger { color: var(--type-risk); border-color: var(--type-risk); }
+button.danger:hover { background: #fbeaea; }
+
+input[type="text"], input[type="date"], input[type="search"], select, textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--brand-border);
+  border-radius: 4px;
+  background: var(--brand-surface);
+  color: var(--brand-ink);
+}
+textarea { resize: vertical; min-height: 60px; }
+label { display: block; font-weight: 600; font-size: 12px; margin: 0 0 4px; color: var(--brand-muted); }
+
+/* Top bar */
+.topbar {
+  background: var(--brand-primary);
+  color: #fff;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.topbar-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.topbar h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
+.topbar-sub { font-size: 13px; color: rgba(255,255,255,0.75); }
+.topbar-sub:empty { display: none; }
+.topbar .mode-pill {
+  background: rgba(255,255,255,0.16);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.banner {
+  background: #fff4d6;
+  border-bottom: 1px solid #e6c65c;
+  color: #6b5310;
+  padding: 8px 20px;
+  font-size: 13px;
+}
+
+.wrap { padding: 16px 20px 40px; max-width: 1600px; margin: 0 auto; }
+
+/* Panels */
+.panel {
+  background: var(--brand-surface);
+  border: 1px solid var(--brand-border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.panel h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--brand-muted);
+  margin: 0 0 10px;
+}
+.panel-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.admin-grid { display: flex; flex-wrap: wrap; gap: 20px; }
+.admin-col { flex: 1 1 260px; min-width: 240px; }
+
+/* Summary bar */
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat {
+  background: var(--brand-surface);
+  border: 1px solid var(--brand-border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-width: 92px;
+}
+.stat .num { font-size: 22px; font-weight: 700; line-height: 1; }
+.stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand-muted); margin-top: 4px; }
+.stat.risk .num { color: var(--type-risk); }
+.stat.assumption .num { color: var(--type-assumption); }
+.stat.issue .num { color: var(--type-issue); }
+.stat.decision .num { color: var(--type-decision); }
+.stat.action .num { color: var(--type-action); }
+
+/* Filters */
+.filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.filter-field { display: flex; flex-direction: column; min-width: 150px; }
+.filter-field.search { flex: 1 1 240px; }
+.chips { display: flex; gap: 6px; }
+.chip {
+  border: 1px solid var(--brand-border);
+  background: var(--brand-surface);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-muted);
+}
+.chip[aria-pressed="true"] { color: #fff; border-color: transparent; }
+.chip.risk[aria-pressed="true"] { background: var(--type-risk); }
+.chip.assumption[aria-pressed="true"] { background: var(--type-assumption); }
+.chip.issue[aria-pressed="true"] { background: var(--type-issue); }
+.chip.decision[aria-pressed="true"] { background: var(--type-decision); }
+.chip.action[aria-pressed="true"] { background: var(--type-action); }
+
+/* Table */
+.table-wrap { overflow-x: auto; border: 1px solid var(--brand-border); border-radius: 6px; background: var(--brand-surface); }
+table { border-collapse: collapse; width: 100%; min-width: 1180px; }
+thead th {
+  position: sticky; top: 0;
+  background: var(--brand-surface-alt);
+  border-bottom: 2px solid var(--brand-border);
+  text-align: left;
+  padding: 9px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--brand-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+thead th .arrow { color: var(--brand-primary); font-size: 10px; }
+tbody td { padding: 8px 10px; border-bottom: 1px solid var(--brand-border); vertical-align: top; }
+tbody tr { cursor: pointer; }
+tbody tr:nth-child(even) { background: var(--brand-surface-alt); }
+tbody tr:hover { background: #e8eef6; }
+tbody tr.overdue td:first-child { box-shadow: inset 3px 0 0 var(--overdue); }
+
+.type-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #fff;
+  white-space: nowrap;
+}
+.type-tag.Risk { background: var(--type-risk); }
+.type-tag.Assumption { background: var(--type-assumption); }
+.type-tag.Issue { background: var(--type-issue); }
+.type-tag.Decision { background: var(--type-decision); }
+.type-tag.Action { background: var(--type-action); }
+
+.band { font-weight: 700; font-size: 12px; }
+.band.Low { color: var(--band-low); }
+.band.Medium { color: var(--band-medium); }
+.band.High { color: var(--band-high); }
+.band.Critical { color: var(--band-critical); }
+
+.pri { font-weight: 600; font-size: 12px; }
+.pri.High { color: var(--priority-high); }
+.pri.Medium { color: var(--priority-medium); }
+.pri.Low { color: var(--priority-low); }
+
+.overdue-flag { color: var(--overdue); font-weight: 700; font-size: 11px; }
+.muted { color: var(--brand-muted); }
+.mono { font-variant-numeric: tabular-nums; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 12px; }
+.id-cell { font-weight: 700; white-space: nowrap; }
+
+.empty-state { padding: 40px; text-align: center; color: var(--brand-muted); }
+
+/* Inline lifecycle control and row actions */
+.row-status { padding: 3px 6px; font-size: 12px; min-width: 130px; }
+.actions-cell { white-space: nowrap; }
+.row-close { padding: 3px 10px; font-size: 12px; }
+th.no-sort { cursor: default; }
+.contacts-table { border-collapse: collapse; width: 100%; }
+.contacts-table th { text-align: left; padding: 6px 10px; border-bottom: 2px solid var(--brand-border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand-muted); }
+.contacts-table td { padding: 6px 10px; border-bottom: 1px solid var(--brand-border); }
+.contacts-table a { color: var(--brand-accent); }
+
+/* Drawer */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(20,30,45,0.45);
+  display: none;
+  z-index: 40;
+}
+.overlay.open { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 480px; max-width: 92vw;
+  background: var(--brand-surface);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.2);
+  transform: translateX(100%);
+  transition: transform 0.18s ease;
+  z-index: 50;
+  display: flex; flex-direction: column;
+}
+@media (prefers-reduced-motion: reduce) { .drawer { transition: none; } }
+.drawer.open { transform: translateX(0); }
+.drawer-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--brand-border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--brand-surface-alt);
+}
+.drawer-head h3 { margin: 0; font-size: 15px; }
+.drawer-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.drawer-foot {
+  padding: 12px 18px;
+  border-top: 1px solid var(--brand-border);
+  display: flex; gap: 8px; justify-content: flex-end;
+  background: var(--brand-surface-alt);
+}
+.field { margin-bottom: 12px; }
+.field-2 { display: flex; gap: 12px; }
+.field-2 > div { flex: 1; }
+.exposure-readout {
+  background: var(--brand-surface-alt);
+  border: 1px solid var(--brand-border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.type-select-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.type-select-row button { flex: 1 1 auto; font-weight: 600; }
+.type-select-row button[aria-pressed="true"] { color: #fff; border-color: transparent; }
+.type-select-row button.Risk[aria-pressed="true"] { background: var(--type-risk); }
+.type-select-row button.Assumption[aria-pressed="true"] { background: var(--type-assumption); }
+.type-select-row button.Issue[aria-pressed="true"] { background: var(--type-issue); }
+.type-select-row button.Decision[aria-pressed="true"] { background: var(--type-decision); }
+.type-select-row button.Action[aria-pressed="true"] { background: var(--type-action); }
+
+.proj-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.proj-list li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid var(--brand-border);
+}
+.proj-list li span { flex: 1; }
+.hint { font-size: 12px; color: var(--brand-muted); margin: 4px 0 0; }
+.count-note { font-size: 12px; color: var(--brand-muted); margin-top: 6px; }
+
+footer.appfoot {
+  margin-top: 24px;
+  padding: 14px 20px;
+  font-size: 12px;
+  color: var(--brand-muted);
+  border-top: 1px solid var(--brand-border);
+  text-align: center;
+}
+
+.hidden { display: none !important; }
+.section-divider { border: none; border-top: 1px solid var(--brand-border); margin: 14px 0; }
+.req::after { content: " *"; color: var(--type-risk); }
+
+/* Tabs */
+.tabbar { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--brand-border); }
+.tab {
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  border-radius: 0;
+  padding: 8px 14px;
+  font-weight: 600;
+  color: var(--brand-muted);
+}
+.tab:hover { background: transparent; color: var(--brand-ink); }
+.tab.active { color: var(--brand-primary); border-bottom-color: var(--brand-primary); }
+
+/* Table secondary line for mitigation */
+.sub-line { font-size: 11px; color: var(--brand-muted); margin-top: 3px; }
+.sub-line b { color: var(--brand-ink); font-weight: 600; }
+
+/* Dashboard */
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.chart-card { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 16px; }
+.chart-card h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand-muted); }
+.chart-card svg { display: block; width: 100%; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 12px; }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; color: var(--brand-ink); }
+.legend .sw { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
+.matrix { border-collapse: collapse; width: 100%; }
+.matrix th, .matrix td { border: 1px solid var(--brand-border); text-align: center; padding: 8px; font-size: 12px; }
+.matrix th { background: var(--brand-surface-alt); color: var(--brand-muted); font-weight: 600; }
+.matrix td .cell-count { font-weight: 700; font-size: 15px; }
+.matrix .axis-label { background: var(--brand-surface-alt); color: var(--brand-muted); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">
+    <h1>RAID Portfolio Manager</h1>
+    <span class="topbar-sub" id="companyLabel"></span>
+  </div>
+  <span class="mode-pill" id="modePill">MASTER</span>
+</div>
+
+<div class="banner hidden" id="editBanner">
+  Edit mode. Changes save to this file's local storage only. Use Download Updated Data to send changes back to the Project Manager.
+</div>
+
+<div class="wrap">
+
+  <div class="tabbar" id="tabbar">
+    <button class="tab active" id="tabTracker" aria-pressed="true">RAID Tracker</button>
+    <button class="tab" id="tabDashboard" aria-pressed="false">Dashboard</button>
+  </div>
+
+  <div id="trackerView">
+
+  <!-- Admin panels (MASTER only for project + export, MASTER/EDIT for data actions) -->
+  <div class="panel hidden" id="adminPanel">
+    <div class="admin-grid">
+
+      <div class="admin-col" id="setupAdmin">
+        <h2>Portfolio setup</h2>
+        <div class="field">
+          <label for="companyName">Company name</label>
+          <input type="text" id="companyName" placeholder="Client or company name" maxlength="120">
+        </div>
+        <label>Stakeholders (owners and assignees)</label>
+        <div class="panel-row">
+          <div style="flex:1 1 150px;">
+            <input type="text" id="newStakeholder" placeholder="Person's name" maxlength="80">
+          </div>
+          <div style="flex:1 1 150px;">
+            <select id="newStakeholderProject"><option value="">Select project</option></select>
+          </div>
+          <div style="flex:1 1 180px;">
+            <input type="text" id="newStakeholderEmail" placeholder="Email (optional)" maxlength="120">
+          </div>
+          <button class="primary" id="addStakeholderBtn">Add</button>
+        </div>
+        <ul class="proj-list" id="stakeholderList"></ul>
+        <p class="hint">Create the project first, then add each stakeholder to it. The email lets a manager reach out for status. These names populate the Owner and Assigned to pickers for that project's items.</p>
+      </div>
+
+      <div class="admin-col" id="projectAdmin">
+        <h2>Projects</h2>
+        <div class="panel-row">
+          <div style="flex:1;">
+            <input type="text" id="newProjectName" placeholder="New project name" maxlength="80">
+          </div>
+          <button class="primary" id="addProjectBtn">Add project</button>
+        </div>
+        <ul class="proj-list" id="projList"></ul>
+        <p class="count-note" id="projCount"></p>
+      </div>
+
+      <div class="admin-col" id="jsonAdmin">
+        <h2>Backup and restore</h2>
+        <div class="panel-row">
+          <button id="exportJsonBtn">Export all data (JSON)</button>
+        </div>
+        <hr class="section-divider">
+        <label for="importJsonFile">Import JSON (merges by item ID)</label>
+        <input type="file" id="importJsonFile" accept=".json,application/json">
+        <p class="hint">Existing IDs are updated, new IDs are added. Use this to re-absorb an Edit file's downloaded data.</p>
+      </div>
+
+      <div class="admin-col" id="exportAdmin">
+        <h2>Share files</h2>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; font-weight:600; text-transform:none; letter-spacing:0;">
+            <input type="checkbox" id="shareReadOnly" style="width:auto;"> Read only (recipients can view and filter but not edit)
+          </label>
+        </div>
+        <div class="panel-row">
+          <button class="primary" id="sharePortfolioBtn">Share full portfolio</button>
+        </div>
+        <hr class="section-divider">
+        <div class="field">
+          <label for="exportProject">Single project</label>
+          <select id="exportProject"></select>
+        </div>
+        <div class="panel-row">
+          <button id="shareProjectBtn">Share this project</button>
+        </div>
+        <p class="hint">By default recipients can update and filter their own copy but cannot add new entries. Tick read only to send a view-only copy. Each file is standalone and holds only the data shared in it. Access is file-based, not a secured system.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Edit-mode data return -->
+  <div class="panel hidden" id="editReturnPanel">
+    <div class="panel-row">
+      <button class="primary" id="downloadUpdatedBtn">Download updated data (JSON)</button>
+      <span class="hint">Send this file back to the Project Manager so your changes can be merged.</span>
+    </div>
+  </div>
+
+  <!-- Contacts (shown in shared files so a manager can reach stakeholders) -->
+  <div class="panel hidden" id="contactsPanel">
+    <h2>Contacts</h2>
+    <div id="contactsBody"></div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary" id="summary"></div>
+
+  <!-- Filters -->
+  <div class="panel">
+    <h2>Filters</h2>
+    <div class="filters">
+      <div class="filter-field">
+        <label for="fProject">Project</label>
+        <select id="fProject"><option value="">All projects</option></select>
+      </div>
+      <div class="filter-field">
+        <label>Type</label>
+        <div class="chips" id="typeChips">
+          <button class="chip risk" data-type="Risk" aria-pressed="false">Risk</button>
+          <button class="chip assumption" data-type="Assumption" aria-pressed="false">Assumption</button>
+          <button class="chip issue" data-type="Issue" aria-pressed="false">Issue</button>
+          <button class="chip decision" data-type="Decision" aria-pressed="false">Decision</button>
+          <button class="chip action" data-type="Action" aria-pressed="false">Action</button>
+        </div>
+      </div>
+      <div class="filter-field">
+        <label for="fOwner">Owner</label>
+        <select id="fOwner"><option value="">All owners</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fAssigned">Assigned to</label>
+        <select id="fAssigned"><option value="">All assignees</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="fStatus">Status</label>
+        <select id="fStatus"><option value="">All statuses</option></select>
+      </div>
+      <div class="filter-field search">
+        <label for="fSearch">Search</label>
+        <input type="search" id="fSearch" placeholder="Search title, description, notes">
+      </div>
+      <div class="filter-field">
+        <label>&nbsp;</label>
+        <button id="clearFilters">Clear filters</button>
+      </div>
+      <div class="filter-field" id="addItemWrap">
+        <label>&nbsp;</label>
+        <button class="primary" id="addItemBtn">Add item</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <table id="raidTable">
+      <thead>
+        <tr id="headRow"></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="empty-state hidden" id="emptyState">No items match the current filters.</div>
+  </div>
+
+  </div><!-- /trackerView -->
+
+  <div id="dashboardView" class="hidden">
+    <div class="panel">
+      <h2>Dashboard</h2>
+      <div class="filters">
+        <div class="filter-field">
+          <label for="dashProject">Project</label>
+          <select id="dashProject"><option value="">All projects</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="summary" id="dashKpis"></div>
+    <div class="dash-grid" id="dashCharts"></div>
+    <div class="empty-state hidden" id="dashEmpty">No data to visualize yet. Add RAID items to see charts.</div>
+  </div>
+
+  <footer class="appfoot hidden" id="sharedFooter">
+    Access is file-based. This file contains only the data shared with you. This is not a secured system. Do not redistribute.
+  </footer>
+
+</div>
+
+<!-- Drawer for add/edit/view -->
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <h3 id="drawerTitle">Item</h3>
+    <button id="drawerClose" aria-label="Close panel">Close</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot"></div>
+</aside>
+
+<script>
+/* Capture a pristine copy of the document markup BEFORE any dynamic
+   rendering runs. Exported files are built from this clean template plus
+   an injected data and mode block. This is the simplest approach that keeps
+   every file fully self-contained with zero network calls: no fetch of the
+   page source is needed, and it works from file:// and from static hosting. */
+var PRISTINE_HTML = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+
+/* INJECT-START (export replaces this whole block, do not edit the markers) */
+var EMBEDDED_DATA = null;
+var EMBEDDED_MODE = null;
+var EXPORT_ID = null;
+/* INJECT-END */
+
+/* ---- Mode ---- */
+var MODE = EMBEDDED_MODE || "MASTER";  // MASTER | VIEW | EDIT
+var CAN_EDIT = (MODE === "MASTER" || MODE === "EDIT");
+var CAN_ADD = (MODE === "MASTER");
+var IS_MASTER = (MODE === "MASTER");
+
+/* ---- Constants ---- */
+var TYPES = ["Risk", "Assumption", "Issue", "Decision", "Action"];
+var PRIORITIES = ["High", "Medium", "Low"];
+var LEVELS = ["High", "Medium", "Low"];
+var MAX_PROJECTS = 7;
+
+var STATUS_BY_TYPE = {
+  Risk: ["Open", "Mitigating", "Monitoring", "Closed", "Escalated to Issue"],
+  Assumption: ["Open", "Confirmed", "Invalidated", "Closed"],
+  Issue: ["Open", "In Progress", "Resolved", "Closed", "Escalated"],
+  Decision: ["Proposed", "Approved", "Rejected", "Deferred", "Implemented"],
+  Action: ["Open", "In Progress", "Completed", "Blocked", "Cancelled"]
+};
+var CLOSED_STATUSES = ["Closed", "Resolved", "Implemented", "Completed", "Cancelled"];
+var RESPONSE_STRATEGIES = ["Avoid", "Transfer", "Mitigate", "Accept"];
+var VALIDATION_STATUSES = ["Unvalidated", "Confirmed", "Invalidated"];
+var LEVEL_SCORE = { High: 3, Medium: 2, Low: 1 };
+
+/* ---- State ---- */
+var state = { meta: { company: "" }, projects: [], stakeholders: [], items: [], counter: 0 };
+var filters = { project: "", types: ["Risk", "Assumption", "Issue", "Decision"], owner: "", assigned: "", status: "", search: "" };
+var sort = { key: "id", dir: "asc" };
+var editingId = null;      // id of item being edited, or null for new
+var draftType = "Risk";    // type selected in the add/edit form
+
+function storageKey() { return "raid_v1_" + (EXPORT_ID || "master"); }
+
+/* ---- Load and persist ---- */
+function loadData() {
+  if (MODE === "VIEW") {
+    return EMBEDDED_DATA ? clone(EMBEDDED_DATA) : blankState();
+  }
+  var stored = null;
+  try { stored = localStorage.getItem(storageKey()); } catch (e) { stored = null; }
+  if (stored) {
+    try { return normalize(JSON.parse(stored)); } catch (e) { /* fall through */ }
+  }
+  if (EMBEDDED_DATA) return normalize(clone(EMBEDDED_DATA));
+  if (IS_MASTER) return seedSample();
+  return blankState();
+}
+
+function saveData() {
+  if (MODE === "VIEW") return;
+  try { localStorage.setItem(storageKey(), JSON.stringify(state)); } catch (e) { /* storage may be blocked */ }
+}
+
+function blankState() { return { meta: { company: "" }, projects: [], stakeholders: [], items: [], counter: 0 }; }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function normalize(s) {
+  s = s || {};
+  s.meta = s.meta && typeof s.meta === "object" ? s.meta : { company: "" };
+  if (typeof s.meta.company !== "string") s.meta.company = "";
+  s.projects = Array.isArray(s.projects) ? s.projects : [];
+  s.stakeholders = Array.isArray(s.stakeholders) ? s.stakeholders.map(function (st) {
+    if (typeof st === "string") return { name: st, project: "", email: "" };
+    return { name: (st && st.name) || "", project: (st && st.project) || "", email: (st && st.email) || "" };
+  }).filter(function (st) { return st.name; }) : [];
+  s.items = Array.isArray(s.items) ? s.items : [];
+  var maxNum = 0;
+  s.items.forEach(function (it) {
+    var n = parseInt(String(it.id || "").replace("RAID-", ""), 10);
+    if (!isNaN(n) && n > maxNum) maxNum = n;
+  });
+  s.counter = Math.max(typeof s.counter === "number" ? s.counter : 0, maxNum);
+  return s;
+}
+
+function seedSample() {
+  // Clean slate: no prepopulated projects, stakeholders, or items.
+  return blankState();
+}
+
+/* ---- ID and item helpers ---- */
+function nextId(s) {
+  s.counter += 1;
+  var n = String(s.counter);
+  while (n.length < 3) n = "0" + n;
+  return "RAID-" + n;
+}
+
+function addItemToState(s, data) {
+  var item = buildItem(data);
+  item.id = nextId(s);
+  item.lastUpdated = todayStr();
+  s.items.push(item);
+  return item;
+}
+
+function buildItem(data) {
+  data = data || {};
+  return {
+    id: data.id || null,
+    project: data.project || "",
+    type: data.type || "Risk",
+    title: data.title || "",
+    description: data.description || "",
+    category: data.category || "",
+    owner: data.owner || "",
+    assignedTo: data.assignedTo || "",
+    status: data.status || STATUS_BY_TYPE[data.type || "Risk"][0],
+    priority: data.priority || "Medium",
+    dateRaised: data.dateRaised || todayStr(),
+    dueDate: data.dueDate || "",
+    dateClosed: data.dateClosed || "",
+    lastUpdated: data.lastUpdated || todayStr(),
+    notes: data.notes || "",
+    /* Risk */
+    probability: data.probability || "",
+    impact: data.impact || "",
+    responseStrategy: data.responseStrategy || "",
+    mitigationAction: data.mitigationAction || "",
+    contingencyPlan: data.contingencyPlan || "",
+    /* Issue */
+    resolutionPlan: data.resolutionPlan || "",
+    /* Decision */
+    rationale: data.rationale || "",
+    alternativesConsidered: data.alternativesConsidered || "",
+    decisionAuthority: data.decisionAuthority || "",
+    /* Assumption */
+    validationStatus: data.validationStatus || "",
+    impactIfInvalid: data.impactIfInvalid || "",
+    /* Action */
+    expectedOutcome: data.expectedOutcome || "",
+    progressUpdate: data.progressUpdate || ""
+  };
+}
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+function exposureScore(item) {
+  if (item.type !== "Risk") return null;
+  var p = LEVEL_SCORE[item.probability];
+  var i = LEVEL_SCORE[item.impact];
+  if (!p || !i) return null;
+  return p * i;
+}
+function exposureBand(score) {
+  if (score == null) return "";
+  if (score <= 2) return "Low";
+  if (score <= 4) return "Medium";
+  if (score <= 6) return "High";
+  return "Critical";
+}
+function ageDays(item) {
+  if (!item.dateRaised) return "";
+  var raised = new Date(item.dateRaised + "T00:00:00");
+  var now = new Date(todayStr() + "T00:00:00");
+  var diff = Math.round((now - raised) / 86400000);
+  return diff >= 0 ? diff : 0;
+}
+function isOverdue(item) {
+  if (!item.dueDate) return false;
+  if (CLOSED_STATUSES.indexOf(item.status) !== -1) return false;
+  var due = new Date(item.dueDate + "T00:00:00");
+  var now = new Date(todayStr() + "T00:00:00");
+  return due < now;
+}
+
+/* ---- Rendering ---- */
+var COLUMNS = [
+  { key: "id", label: "ID" },
+  { key: "type", label: "Type" },
+  { key: "project", label: "Project" },
+  { key: "title", label: "Title" },
+  { key: "owner", label: "Owner" },
+  { key: "assignedTo", label: "Assigned to" },
+  { key: "status", label: "Status" },
+  { key: "priority", label: "Priority" },
+  { key: "probability", label: "Prob" },
+  { key: "impact", label: "Impact" },
+  { key: "exposure", label: "Exposure" },
+  { key: "dueDate", label: "Due" },
+  { key: "age", label: "Age" }
+];
+
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function renderHead() {
+  var row = document.getElementById("headRow");
+  row.innerHTML = "";
+  COLUMNS.forEach(function (col) {
+    var th = document.createElement("th");
+    var arrow = "";
+    if (sort.key === col.key) arrow = sort.dir === "asc" ? " <span class='arrow'>up</span>" : " <span class='arrow'>down</span>";
+    th.innerHTML = esc(col.label) + arrow;
+    th.addEventListener("click", function () {
+      if (sort.key === col.key) sort.dir = sort.dir === "asc" ? "desc" : "asc";
+      else { sort.key = col.key; sort.dir = "asc"; }
+      renderAll();
+    });
+    row.appendChild(th);
+  });
+  if (CAN_EDIT) {
+    var actTh = document.createElement("th");
+    actTh.className = "no-sort";
+    actTh.textContent = "Actions";
+    row.appendChild(actTh);
+  }
+}
+
+function sortValue(item, key) {
+  if (key === "exposure") return exposureScore(item) || 0;
+  if (key === "age") return ageDays(item) || 0;
+  if (key === "dueDate" || key === "dateRaised") return item[key] || "";
+  return String(item[key] || "").toLowerCase();
+}
+
+function getFiltered() {
+  var out = state.items.filter(function (it) {
+    if (filters.project && it.project !== filters.project) return false;
+    if (filters.types.indexOf(it.type) === -1) return false;
+    if (filters.owner && it.owner !== filters.owner) return false;
+    if (filters.assigned && it.assignedTo !== filters.assigned) return false;
+    if (filters.status && it.status !== filters.status) return false;
+    if (filters.search) {
+      var q = filters.search.toLowerCase();
+      var hay = (it.title + " " + it.description + " " + it.notes).toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+  out.sort(function (a, b) {
+    var av = sortValue(a, sort.key), bv = sortValue(b, sort.key);
+    if (av < bv) return sort.dir === "asc" ? -1 : 1;
+    if (av > bv) return sort.dir === "asc" ? 1 : -1;
+    return 0;
+  });
+  return out;
+}
+
+function renderTable() {
+  var body = document.getElementById("tableBody");
+  var empty = document.getElementById("emptyState");
+  body.innerHTML = "";
+  var rows = getFiltered();
+  if (!rows.length) { empty.classList.remove("hidden"); return; }
+  empty.classList.add("hidden");
+
+  rows.forEach(function (it) {
+    var tr = document.createElement("tr");
+    if (isOverdue(it)) tr.className = "overdue";
+    var score = exposureScore(it);
+    var band = exposureBand(score);
+    var overdueMark = isOverdue(it) ? " <span class='overdue-flag'>OVERDUE</span>" : "";
+    var titleExtra = "";
+    if (it.type === "Risk" && it.status === "Mitigating") {
+      var strat = it.responseStrategy ? esc(it.responseStrategy) : "";
+      var action = it.mitigationAction ? esc(it.mitigationAction) : "";
+      if (strat || action) {
+        titleExtra = "<div class='sub-line'><b>Mitigation" + (strat ? " (" + strat + ")" : "") + ":</b> " +
+          (action || "<span class='muted'>No action recorded</span>") + "</div>";
+      }
+    }
+
+    var statusCell;
+    if (CAN_EDIT) {
+      var opts = STATUS_BY_TYPE[it.type].map(function (s) {
+        return "<option" + (s === it.status ? " selected" : "") + ">" + esc(s) + "</option>";
+      }).join("");
+      statusCell = "<td><select class='row-status' aria-label='Lifecycle stage'>" + opts + "</select></td>";
+    } else {
+      statusCell = "<td>" + esc(it.status) + "</td>";
+    }
+
+    tr.innerHTML =
+      "<td class='id-cell'>" + esc(it.id) + "</td>" +
+      "<td><span class='type-tag " + it.type + "'>" + esc(it.type) + "</span></td>" +
+      "<td>" + esc(it.project) + "</td>" +
+      "<td>" + esc(it.title) + overdueMark + titleExtra + "</td>" +
+      "<td>" + esc(it.owner) + "</td>" +
+      "<td>" + esc(it.assignedTo) + "</td>" +
+      statusCell +
+      "<td><span class='pri " + it.priority + "'>" + esc(it.priority) + "</span></td>" +
+      "<td>" + (it.type === "Risk" ? esc(it.probability || "-") : "<span class='muted'>-</span>") + "</td>" +
+      "<td>" + (it.type === "Risk" ? esc(it.impact || "-") : "<span class='muted'>-</span>") + "</td>" +
+      "<td>" + (score != null ? "<span class='band " + band + "'>" + score + " " + band + "</span>" : "<span class='muted'>-</span>") + "</td>" +
+      "<td class='mono'>" + esc(it.dueDate || "-") + "</td>" +
+      "<td class='mono'>" + esc(ageDays(it)) + "d</td>" +
+      (CAN_EDIT
+        ? "<td class='actions-cell'>" + (isClosedItem(it)
+            ? "<button class='row-close' data-reopen='1'>Reopen</button>"
+            : "<button class='row-close'>Close</button>") + "</td>"
+        : "");
+
+    tr.addEventListener("click", function () { openDrawer(it.id); });
+
+    var sel = tr.querySelector(".row-status");
+    if (sel) {
+      sel.addEventListener("click", function (e) { e.stopPropagation(); });
+      sel.addEventListener("change", function (e) { e.stopPropagation(); changeStatus(it.id, sel.value); });
+    }
+    var closeBtn = tr.querySelector(".row-close");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (closeBtn.getAttribute("data-reopen")) reopenItem(it.id);
+        else closeItem(it.id);
+      });
+    }
+    body.appendChild(tr);
+  });
+}
+
+/* ---- Lifecycle helpers ---- */
+function isClosedItem(it) { return CLOSED_STATUSES.indexOf(it.status) !== -1; }
+
+function closeStatusFor(type) {
+  if (type === "Decision") return "Implemented";
+  if (type === "Issue") return "Resolved";
+  if (type === "Action") return "Completed";
+  return "Closed";
+}
+
+function syncClosedDate(item) {
+  if (isClosedItem(item)) { if (!item.dateClosed) item.dateClosed = todayStr(); }
+  else { item.dateClosed = ""; }
+}
+
+function findItem(id) {
+  var found = null;
+  state.items.forEach(function (it) { if (it.id === id) found = it; });
+  return found;
+}
+
+function changeStatus(id, newStatus) {
+  var item = findItem(id);
+  if (!item) return;
+  item.status = newStatus;
+  syncClosedDate(item);
+  item.lastUpdated = todayStr();
+  saveData();
+  renderAll();
+}
+
+function closeItem(id) {
+  var item = findItem(id);
+  if (!item) return;
+  changeStatus(id, closeStatusFor(item.type));
+}
+
+function reopenItem(id) {
+  var item = findItem(id);
+  if (!item) return;
+  // Reopen returns the item to the first stage in its lifecycle.
+  changeStatus(id, STATUS_BY_TYPE[item.type][0]);
+}
+
+function renderSummary() {
+  var el = document.getElementById("summary");
+  var items = state.items;
+  var counts = { Risk: 0, Assumption: 0, Issue: 0, Decision: 0, Action: 0 };
+  var open = 0, closed = 0;
+  items.forEach(function (it) {
+    counts[it.type] = (counts[it.type] || 0) + 1;
+    if (CLOSED_STATUSES.indexOf(it.status) !== -1) closed++; else open++;
+  });
+  function stat(cls, num, lbl) {
+    return "<div class='stat " + cls + "'><div class='num'>" + num + "</div><div class='lbl'>" + lbl + "</div></div>";
+  }
+  el.innerHTML =
+    stat("", state.projects.length, state.projects.length === 1 ? "Project" : "Projects") +
+    stat("", items.length, "Total RAID items") +
+    stat("risk", counts.Risk, "Risks") +
+    stat("assumption", counts.Assumption, "Assumptions") +
+    stat("issue", counts.Issue, "Issues") +
+    stat("decision", counts.Decision, "Decisions") +
+    stat("action", counts.Action, "Actions") +
+    stat("", open, "Open") +
+    stat("", closed, "Closed");
+}
+
+function uniqueValues(field) {
+  var set = {};
+  state.items.forEach(function (it) { if (it[field]) set[it[field]] = true; });
+  return Object.keys(set).sort();
+}
+
+function fillSelect(id, values, current, allLabel) {
+  var sel = document.getElementById(id);
+  var prev = current != null ? current : sel.value;
+  sel.innerHTML = "<option value=''>" + allLabel + "</option>";
+  values.forEach(function (v) {
+    var o = document.createElement("option");
+    o.value = v; o.textContent = v;
+    if (v === prev) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function renderFilterOptions() {
+  fillSelect("fProject", state.projects.slice(), filters.project, "All projects");
+  fillSelect("fOwner", uniqueValues("owner"), filters.owner, "All owners");
+  fillSelect("fAssigned", uniqueValues("assignedTo"), filters.assigned, "All assignees");
+  var statuses = uniqueValues("status");
+  fillSelect("fStatus", statuses, filters.status, "All statuses");
+}
+
+function renderProjectAdmin() {
+  var list = document.getElementById("projList");
+  list.innerHTML = "";
+  state.projects.forEach(function (p, idx) {
+    var li = document.createElement("li");
+    var span = document.createElement("span");
+    span.textContent = p;
+    var rename = document.createElement("button");
+    rename.textContent = "Rename";
+    rename.addEventListener("click", function () { renameProject(idx); });
+    var clear = document.createElement("button");
+    clear.textContent = "Clear";
+    clear.addEventListener("click", function () { clearProject(idx); });
+    var remove = document.createElement("button");
+    remove.textContent = "Remove";
+    remove.className = "danger";
+    remove.addEventListener("click", function () { removeProject(idx); });
+    li.appendChild(span); li.appendChild(rename); li.appendChild(clear); li.appendChild(remove);
+    list.appendChild(li);
+  });
+  document.getElementById("projCount").textContent =
+    state.projects.length + " of " + MAX_PROJECTS + " projects used.";
+  document.getElementById("addProjectBtn").disabled = state.projects.length >= MAX_PROJECTS;
+
+  var exp = document.getElementById("exportProject");
+  exp.innerHTML = "";
+  state.projects.forEach(function (p) {
+    var o = document.createElement("option"); o.value = p; o.textContent = p; exp.appendChild(o);
+  });
+}
+
+function renderAll() {
+  renderHead();
+  renderSummary();
+  renderFilterOptions();
+  renderTable();
+  renderCompanyLabel();
+  renderContacts();
+  renderDashboardProjectOptions();
+  renderDashboard();
+  if (IS_MASTER) { renderProjectAdmin(); renderStakeholderAdmin(); }
+}
+
+/* ---- Dashboard (self-contained SVG charts, no external libraries) ---- */
+var dashProjectFilter = "";
+
+function renderDashboardProjectOptions() {
+  var sel = document.getElementById("dashProject");
+  if (!sel) return;
+  // If the filtered project was removed or cleared, fall back to all projects.
+  if (dashProjectFilter && state.projects.indexOf(dashProjectFilter) === -1) dashProjectFilter = "";
+  var prev = dashProjectFilter;
+  sel.innerHTML = "<option value=''>All projects</option>";
+  state.projects.forEach(function (p) {
+    var o = document.createElement("option");
+    o.value = p; o.textContent = p;
+    if (p === prev) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+function dashItems() {
+  return state.items.filter(function (it) {
+    return !dashProjectFilter || it.project === dashProjectFilter;
+  });
+}
+
+function renderDashboard() {
+  var kpis = document.getElementById("dashKpis");
+  var charts = document.getElementById("dashCharts");
+  var empty = document.getElementById("dashEmpty");
+  if (!kpis || !charts) return;
+
+  var items = dashItems();
+  if (!items.length) {
+    kpis.innerHTML = "";
+    charts.innerHTML = "";
+    empty.classList.remove("hidden");
+    return;
+  }
+  empty.classList.add("hidden");
+
+  // KPI tiles
+  var counts = { Risk: 0, Assumption: 0, Issue: 0, Decision: 0, Action: 0 };
+  var open = 0, closed = 0, overdue = 0, criticalRisks = 0, openIssues = 0, openActions = 0;
+  items.forEach(function (it) {
+    counts[it.type] = (counts[it.type] || 0) + 1;
+    var isClosed = CLOSED_STATUSES.indexOf(it.status) !== -1;
+    if (isClosed) closed++; else open++;
+    if (isOverdue(it)) overdue++;
+    if (it.type === "Risk" && !isClosed) {
+      var band = exposureBand(exposureScore(it));
+      if (band === "High" || band === "Critical") criticalRisks++;
+    }
+    if (it.type === "Issue" && !isClosed) openIssues++;
+    if (it.type === "Action" && !isClosed) openActions++;
+  });
+  function kpi(cls, num, lbl) {
+    return "<div class='stat " + cls + "'><div class='num'>" + num + "</div><div class='lbl'>" + lbl + "</div></div>";
+  }
+  kpis.innerHTML =
+    kpi("", items.length, "Total RAID items") +
+    kpi("", open, "Open") +
+    kpi("", closed, "Closed") +
+    kpi("", overdue, "Overdue") +
+    kpi("risk", criticalRisks, "High/Critical risks") +
+    kpi("issue", openIssues, "Open issues") +
+    kpi("action", openActions, "Open actions");
+
+  var TYPE_COLORS = { Risk: "var(--type-risk)", Assumption: "var(--type-assumption)", Issue: "var(--type-issue)", Decision: "var(--type-decision)", Action: "var(--type-action)" };
+
+  var html = "";
+
+  // Chart 1: items by type (donut)
+  var typeData = TYPES.map(function (t) { return { label: t, value: counts[t] || 0, color: TYPE_COLORS[t] }; })
+    .filter(function (d) { return d.value > 0; });
+  html += "<div class='chart-card'><h3>Items by type</h3>" + donutSvg(typeData) + legendHtml(typeData) + "</div>";
+
+  // Chart 2: open vs closed (donut)
+  var ocData = [
+    { label: "Open", value: open, color: "var(--band-high)" },
+    { label: "Closed", value: closed, color: "var(--band-low)" }
+  ].filter(function (d) { return d.value > 0; });
+  html += "<div class='chart-card'><h3>Open vs closed</h3>" + donutSvg(ocData) + legendHtml(ocData) + "</div>";
+
+  // Chart 3: items by status (horizontal bars)
+  var statusMap = {};
+  items.forEach(function (it) { statusMap[it.status] = (statusMap[it.status] || 0) + 1; });
+  var statusData = Object.keys(statusMap).sort().map(function (s) {
+    return { label: s, value: statusMap[s], color: "var(--brand-accent)" };
+  });
+  html += "<div class='chart-card'><h3>Items by status</h3>" + barSvg(statusData) + "</div>";
+
+  // Chart 4: priority (horizontal bars)
+  var priMap = { High: 0, Medium: 0, Low: 0 };
+  items.forEach(function (it) { priMap[it.priority] = (priMap[it.priority] || 0) + 1; });
+  var priData = [
+    { label: "High", value: priMap.High, color: "var(--priority-high)" },
+    { label: "Medium", value: priMap.Medium, color: "var(--priority-medium)" },
+    { label: "Low", value: priMap.Low, color: "var(--priority-low)" }
+  ];
+  html += "<div class='chart-card'><h3>Items by priority</h3>" + barSvg(priData) + "</div>";
+
+  // Chart 5: items by project (only meaningful across projects)
+  if (!dashProjectFilter && state.projects.length > 1) {
+    var projMap = {};
+    items.forEach(function (it) { projMap[it.project] = (projMap[it.project] || 0) + 1; });
+    var projData = Object.keys(projMap).sort().map(function (p) {
+      return { label: p, value: projMap[p], color: "var(--brand-primary)" };
+    });
+    html += "<div class='chart-card'><h3>Items by project</h3>" + barSvg(projData) + "</div>";
+  }
+
+  // Chart 6: risk exposure matrix (probability x impact)
+  html += "<div class='chart-card'><h3>Risk exposure matrix</h3>" + riskMatrixHtml(items) + "</div>";
+
+  charts.innerHTML = html;
+}
+
+function legendHtml(data) {
+  if (!data.length) return "";
+  return "<div class='legend'>" + data.map(function (d) {
+    return "<span class='key'><span class='sw' style='background:" + d.color + "'></span>" + esc(d.label) + " (" + d.value + ")</span>";
+  }).join("") + "</div>";
+}
+
+/* Donut chart built from SVG arc paths. */
+function donutSvg(data) {
+  var total = data.reduce(function (s, d) { return s + d.value; }, 0);
+  if (!total) return "<p class='muted'>No data.</p>";
+  var cx = 100, cy = 100, r = 80, inner = 48;
+  var angle = -Math.PI / 2;
+  var paths = "";
+  data.forEach(function (d) {
+    var frac = d.value / total;
+    var end = angle + frac * Math.PI * 2;
+    // full circle guard
+    var large = (end - angle) > Math.PI ? 1 : 0;
+    var x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+    var x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
+    var ix2 = cx + inner * Math.cos(end), iy2 = cy + inner * Math.sin(end);
+    var ix1 = cx + inner * Math.cos(angle), iy1 = cy + inner * Math.sin(angle);
+    if (data.length === 1) {
+      paths += "<circle cx='" + cx + "' cy='" + cy + "' r='" + ((r + inner) / 2) + "' fill='none' stroke='" + d.color + "' stroke-width='" + (r - inner) + "'></circle>";
+    } else {
+      paths += "<path d='M " + x1.toFixed(2) + " " + y1.toFixed(2) +
+        " A " + r + " " + r + " 0 " + large + " 1 " + x2.toFixed(2) + " " + y2.toFixed(2) +
+        " L " + ix2.toFixed(2) + " " + iy2.toFixed(2) +
+        " A " + inner + " " + inner + " 0 " + large + " 0 " + ix1.toFixed(2) + " " + iy1.toFixed(2) +
+        " Z' fill='" + d.color + "'></path>";
+    }
+    angle = end;
+  });
+  return "<svg viewBox='0 0 200 200' role='img'>" + paths +
+    "<text x='100' y='96' text-anchor='middle' font-size='30' font-weight='700' fill='var(--brand-ink)'>" + total + "</text>" +
+    "<text x='100' y='118' text-anchor='middle' font-size='12' fill='var(--brand-muted)'>items</text></svg>";
+}
+
+/* Bar chart in SVG. Labels sit on their own line above each bar so long
+   project or status names are never cropped. */
+function barSvg(data) {
+  if (!data.length) return "<p class='muted'>No data.</p>";
+  var max = Math.max.apply(null, data.map(function (d) { return d.value; }));
+  if (max === 0) max = 1;
+  var labelH = 18, barH = 16, gap = 16, padR = 34, leftPad = 2;
+  var w = 360, barMax = w - padR - leftPad;
+  var rowH = labelH + barH + gap;
+  var h = data.length * rowH;
+  var rows = data.map(function (d, i) {
+    var top = i * rowH;
+    var barY = top + labelH;
+    var bw = Math.max(2, (d.value / max) * barMax);
+    return "<text x='" + leftPad + "' y='" + (top + 13) + "' font-size='12' fill='var(--brand-ink)'>" + esc(d.label) + "</text>" +
+      "<rect x='" + leftPad + "' y='" + barY + "' width='" + bw.toFixed(1) + "' height='" + barH + "' rx='3' fill='" + d.color + "'></rect>" +
+      "<text x='" + (leftPad + bw + 6) + "' y='" + (barY + barH - 3) + "' font-size='12' font-weight='700' fill='var(--brand-ink)'>" + d.value + "</text>";
+  }).join("");
+  return "<svg viewBox='0 0 " + w + " " + h + "' role='img'>" + rows + "</svg>";
+}
+
+/* Risk exposure matrix: probability (rows) x impact (columns), colored by band. */
+function riskMatrixHtml(items) {
+  var risks = items.filter(function (it) { return it.type === "Risk" && it.probability && it.impact; });
+  if (!risks.length) return "<p class='muted'>No scored risks in this view.</p>";
+  var probs = ["High", "Medium", "Low"];
+  var impacts = ["Low", "Medium", "High"];
+  function bandColor(score) {
+    var b = exposureBand(score);
+    if (b === "Low") return "var(--band-low)";
+    if (b === "Medium") return "var(--band-medium)";
+    if (b === "High") return "var(--band-high)";
+    return "var(--band-critical)";
+  }
+  var head = "<tr><th class='axis-label'>Prob \\ Impact</th>" +
+    impacts.map(function (i) { return "<th>" + i + "</th>"; }).join("") + "</tr>";
+  var body = probs.map(function (p) {
+    var cells = impacts.map(function (im) {
+      var n = risks.filter(function (r) { return r.probability === p && r.impact === im; }).length;
+      var score = LEVEL_SCORE[p] * LEVEL_SCORE[im];
+      var bg = n ? bandColor(score) : "var(--brand-surface)";
+      var fg = n ? "#fff" : "var(--brand-muted)";
+      return "<td style='background:" + bg + "; color:" + fg + "'><span class='cell-count'>" + (n || "") + "</span></td>";
+    }).join("");
+    return "<tr><th class='axis-label'>" + p + "</th>" + cells + "</tr>";
+  }).join("");
+  return "<table class='matrix'>" + head + body + "</table>";
+}
+
+/* ---- Tab switching ---- */
+function showView(which) {
+  var tracker = document.getElementById("trackerView");
+  var dash = document.getElementById("dashboardView");
+  var tabT = document.getElementById("tabTracker");
+  var tabD = document.getElementById("tabDashboard");
+  var onDash = which === "dashboard";
+  tracker.classList.toggle("hidden", onDash);
+  dash.classList.toggle("hidden", !onDash);
+  tabT.classList.toggle("active", !onDash);
+  tabD.classList.toggle("active", onDash);
+  tabT.setAttribute("aria-pressed", String(!onDash));
+  tabD.setAttribute("aria-pressed", String(onDash));
+  if (onDash) renderDashboard();
+}
+
+/* Contacts directory shown in shared files so a manager can reach out for status. */
+function renderContacts() {
+  var panel = document.getElementById("contactsPanel");
+  var body = document.getElementById("contactsBody");
+  if (!panel || !body) return;
+  if (IS_MASTER) { panel.classList.add("hidden"); return; }
+  if (!state.stakeholders.length) {
+    body.innerHTML = "<p class='muted'>No stakeholder contacts were included in this file.</p>";
+    return;
+  }
+  var rows = state.stakeholders.map(function (st) {
+    var email = st.email
+      ? "<a href='mailto:" + esc(st.email) + "'>" + esc(st.email) + "</a>"
+      : "<span class='muted'>No email on file</span>";
+    return "<tr><td>" + esc(st.name) + "</td><td>" + esc(st.project) + "</td><td>" + email + "</td></tr>";
+  }).join("");
+  body.innerHTML =
+    "<table class='contacts-table'><thead><tr><th>Name</th><th>Project</th><th>Email</th></tr></thead><tbody>" +
+    rows + "</tbody></table>";
+}
+
+/* ---- Stakeholder and company management (MASTER only) ---- */
+function addStakeholder() {
+  var input = document.getElementById("newStakeholder");
+  var projectSel = document.getElementById("newStakeholderProject");
+  var emailInput = document.getElementById("newStakeholderEmail");
+  var name = input.value.trim();
+  var project = projectSel.value;
+  var email = emailInput.value.trim();
+  if (!name) return;
+  if (!state.projects.length) { alert("Create a project first, then add stakeholders to it."); return; }
+  if (!project) { alert("Choose the project this stakeholder belongs to."); return; }
+  var dup = state.stakeholders.some(function (s) { return s.name === name && s.project === project; });
+  if (dup) { alert("That stakeholder is already on this project."); return; }
+  state.stakeholders.push({ name: name, project: project, email: email });
+  input.value = "";
+  emailInput.value = "";
+  saveData(); renderAll();
+}
+function removeStakeholder(idx) {
+  var st = state.stakeholders[idx];
+  var used = state.items.filter(function (it) {
+    return it.project === st.project && (it.owner === st.name || it.assignedTo === st.name);
+  }).length;
+  var msg = used
+    ? "Remove '" + st.name + "' from " + st.project + "? " + used + " item(s) list this person. Those items keep the name but the person leaves the picker."
+    : "Remove '" + st.name + "' from " + st.project + "?";
+  if (!confirm(msg)) return;
+  state.stakeholders.splice(idx, 1);
+  saveData(); renderAll();
+}
+function renderStakeholderAdmin() {
+  var companyInput = document.getElementById("companyName");
+  if (companyInput && document.activeElement !== companyInput) companyInput.value = state.meta.company || "";
+
+  // project picker for adding a stakeholder
+  var projSel = document.getElementById("newStakeholderProject");
+  if (projSel) {
+    var prev = projSel.value;
+    projSel.innerHTML = "<option value=''>Select project</option>";
+    state.projects.forEach(function (p) {
+      var o = document.createElement("option");
+      o.value = p; o.textContent = p;
+      if (p === prev) o.selected = true;
+      projSel.appendChild(o);
+    });
+  }
+
+  var list = document.getElementById("stakeholderList");
+  list.innerHTML = "";
+  state.stakeholders.forEach(function (st, idx) {
+    var li = document.createElement("li");
+    var span = document.createElement("span");
+    span.textContent = st.name + " (" + st.project + ")" + (st.email ? " " + st.email : "");
+    var remove = document.createElement("button");
+    remove.textContent = "Remove";
+    remove.className = "danger";
+    remove.addEventListener("click", function () { removeStakeholder(idx); });
+    li.appendChild(span); li.appendChild(remove);
+    list.appendChild(li);
+  });
+}
+function applyCompany() {
+  var input = document.getElementById("companyName");
+  state.meta.company = input.value.trim();
+  saveData();
+  renderCompanyLabel();
+}
+function renderCompanyLabel() {
+  var label = document.getElementById("companyLabel");
+  label.textContent = state.meta.company || "";
+}
+
+/* ---- Project management (MASTER only) ---- */
+function addProject() {
+  var input = document.getElementById("newProjectName");
+  var name = input.value.trim();
+  if (!name) return;
+  if (state.projects.length >= MAX_PROJECTS) { alert("Project limit reached. The maximum is " + MAX_PROJECTS + "."); return; }
+  if (state.projects.indexOf(name) !== -1) { alert("That project name already exists."); return; }
+  state.projects.push(name);
+  input.value = "";
+  saveData(); renderAll();
+}
+function renameProject(idx) {
+  var oldName = state.projects[idx];
+  var next = prompt("Rename project", oldName);
+  if (next == null) return;
+  next = next.trim();
+  if (!next) return;
+  if (state.projects.indexOf(next) !== -1 && next !== oldName) { alert("That project name already exists."); return; }
+  state.projects[idx] = next;
+  state.items.forEach(function (it) { if (it.project === oldName) it.project = next; });
+  state.stakeholders.forEach(function (st) { if (st.project === oldName) st.project = next; });
+  saveData(); renderAll();
+}
+/* Close-out for a project: optionally export a VIEW archive first, then wipe
+   the project's RAID items and its stakeholders while keeping the project name
+   so it can be reused. Export runs as a background download before the wipe. */
+function clearProject(idx) {
+  var name = state.projects[idx];
+  var itemCount = state.items.filter(function (it) { return it.project === name; }).length;
+  var peopleCount = state.stakeholders.filter(function (st) { return st.project === name; }).length;
+
+  if (confirm("Export a VIEW archive of '" + name + "' before clearing?\n\nClick OK to download the archive first, or Cancel to skip the export.")) {
+    exportFile(name, "VIEW");
+  }
+
+  var msg = "Clear all entries for '" + name + "'?\n\n" +
+    "This deletes " + itemCount + " RAID item(s) and " + peopleCount + " stakeholder(s) for this project. " +
+    "The project name stays so you can reuse it. This cannot be undone.";
+  if (!confirm(msg)) return;
+
+  state.items = state.items.filter(function (it) { return it.project !== name; });
+  state.stakeholders = state.stakeholders.filter(function (st) { return st.project !== name; });
+  saveData();
+  renderAll();
+  alert("Cleared all entries for '" + name + "'.");
+}
+
+function removeProject(idx) {
+  var name = state.projects[idx];
+  var used = state.items.filter(function (it) { return it.project === name; }).length;
+  var msg = used
+    ? "Remove project '" + name + "'? " + used + " item(s) belong to it and will also be deleted."
+    : "Remove project '" + name + "'?";
+  if (!confirm(msg)) return;
+  state.projects.splice(idx, 1);
+  state.items = state.items.filter(function (it) { return it.project !== name; });
+  state.stakeholders = state.stakeholders.filter(function (st) { return st.project !== name; });
+  if (filters.project === name) filters.project = "";
+  saveData(); renderAll();
+}
+
+/* ---- Drawer: add, edit, view ---- */
+function openDrawer(id) {
+  editingId = id;
+  var item = id ? state.items.filter(function (i) { return i.id === id; })[0] : null;
+  draftType = item ? item.type : (filters.types.length ? filters.types[0] : "Risk");
+  if (!item && filters.types.length === 1) draftType = filters.types[0];
+  else if (!item) draftType = "Risk";
+  var mode = !CAN_EDIT ? "view" : (item ? "edit" : "add");
+  document.getElementById("drawerTitle").textContent =
+    mode === "view" ? (item ? item.id + " details" : "Details") :
+    (item ? "Edit " + item.id : "Add item");
+  buildDrawerBody(item, mode);
+  buildDrawerFoot(item, mode);
+  document.getElementById("overlay").classList.add("open");
+  var d = document.getElementById("drawer");
+  d.classList.add("open");
+  d.setAttribute("aria-hidden", "false");
+}
+function closeDrawer() {
+  document.getElementById("overlay").classList.remove("open");
+  var d = document.getElementById("drawer");
+  d.classList.remove("open");
+  d.setAttribute("aria-hidden", "true");
+  editingId = null;
+}
+
+function fieldText(id, label, value, required) {
+  return "<div class='field'><label for='" + id + "'" + (required ? " class='req'" : "") + ">" + label +
+    "</label><input type='text' id='" + id + "' value='" + esc(value) + "'></div>";
+}
+function fieldTextarea(id, label, value) {
+  return "<div class='field'><label for='" + id + "'>" + label + "</label><textarea id='" + id + "'>" + esc(value) + "</textarea></div>";
+}
+function fieldDate(id, label, value) {
+  return "<div class='field'><label for='" + id + "'>" + label + "</label><input type='date' id='" + id + "' value='" + esc(value) + "'></div>";
+}
+function fieldSelect(id, label, options, value, required) {
+  var opts = options.map(function (o) {
+    return "<option value='" + esc(o) + "'" + (o === value ? " selected" : "") + ">" + esc(o) + "</option>";
+  }).join("");
+  return "<div class='field'><label for='" + id + "'" + (required ? " class='req'" : "") + ">" + label +
+    "</label><select id='" + id + "'>" + opts + "</select></div>";
+}
+function readonlyRow(label, value) {
+  return "<div class='field'><label>" + label + "</label><div>" + (value ? esc(value) : "<span class='muted'>Not set</span>") + "</div></div>";
+}
+
+function buildDrawerBody(item, mode) {
+  var body = document.getElementById("drawerBody");
+  var v = item || {};
+  var html = "";
+
+  if (mode === "view") {
+    html += readonlyRow("Type", v.type);
+    html += readonlyRow("Project", v.project);
+    html += readonlyRow("Title", v.title);
+    html += readonlyRow("Description", v.description);
+    html += "<div class='field-2'>" +
+      "<div>" + readonlyRow("Category", v.category) + "</div>" +
+      "<div>" + readonlyRow("Priority", v.priority) + "</div></div>";
+    html += "<div class='field-2'>" +
+      "<div>" + readonlyRow("Owner", v.owner) + "</div>" +
+      "<div>" + readonlyRow("Assigned to", v.assignedTo) + "</div></div>";
+    html += readonlyRow("Status", v.status);
+    html += "<div class='field-2'>" +
+      "<div>" + readonlyRow("Date raised", v.dateRaised) + "</div>" +
+      "<div>" + readonlyRow("Due date", v.dueDate) + "</div></div>";
+    html += "<div class='field-2'>" +
+      "<div>" + readonlyRow("Date closed", v.dateClosed) + "</div>" +
+      "<div>" + readonlyRow("Age", ageDays(v) + " days") + "</div></div>";
+
+    if (v.type === "Risk") {
+      var sc = exposureScore(v);
+      html += "<hr class='section-divider'>";
+      html += "<div class='field-2'>" +
+        "<div>" + readonlyRow("Probability", v.probability) + "</div>" +
+        "<div>" + readonlyRow("Impact", v.impact) + "</div></div>";
+      html += readonlyRow("Exposure", sc != null ? (sc + " (" + exposureBand(sc) + ")") : "Not set");
+      html += readonlyRow("Mitigation strategy", v.responseStrategy);
+      html += readonlyRow("Mitigation action", v.mitigationAction);
+      html += readonlyRow("Contingency plan", v.contingencyPlan);
+    } else if (v.type === "Issue") {
+      html += "<hr class='section-divider'>";
+      html += readonlyRow("Resolution plan", v.resolutionPlan);
+    } else if (v.type === "Decision") {
+      html += "<hr class='section-divider'>";
+      html += readonlyRow("Rationale", v.rationale);
+      html += readonlyRow("Alternatives considered", v.alternativesConsidered);
+      html += readonlyRow("Decision authority", v.decisionAuthority);
+    } else if (v.type === "Assumption") {
+      html += "<hr class='section-divider'>";
+      html += readonlyRow("Rationale", v.rationale);
+      html += readonlyRow("Validation status", v.validationStatus);
+      html += readonlyRow("Impact if invalid", v.impactIfInvalid);
+    } else if (v.type === "Action") {
+      html += "<hr class='section-divider'>";
+      html += readonlyRow("Expected outcome", v.expectedOutcome);
+      html += readonlyRow("Latest progress update", v.progressUpdate);
+    }
+    html += "<hr class='section-divider'>";
+    html += readonlyRow("Notes", v.notes);
+    html += readonlyRow("Last updated", v.lastUpdated);
+    body.innerHTML = html;
+    return;
+  }
+
+  /* add or edit: type is chosen from a dropdown */
+  html += fieldSelect("f_type", "Type", TYPES, draftType, true);
+
+  var projOptions = state.projects.slice();
+  if (v.project && projOptions.indexOf(v.project) === -1) projOptions.push(v.project);
+  var currentProject = v.project || projOptions[0] || "";
+  html += fieldSelect("f_project", "Project", projOptions.length ? projOptions : ["(no projects yet)"], currentProject, true);
+  html += fieldText("f_title", "Title", v.title || "", true);
+  html += fieldTextarea("f_description", "Description", v.description || "");
+  html += "<div class='field-2'><div>" +
+    fieldText("f_category", "Category", v.category || "") + "</div><div>" +
+    fieldSelect("f_priority", "Priority", PRIORITIES, v.priority || "Medium") + "</div></div>";
+  html += "<div id='personFields'>" + personFieldsHtml(currentProject, v.owner || "", v.assignedTo || "") + "</div>";
+  html += fieldSelect("f_status", "Status", STATUS_BY_TYPE[draftType], v.status || STATUS_BY_TYPE[draftType][0], true);
+  html += "<div class='field-2'><div>" +
+    fieldDate("f_dateRaised", "Date raised", v.dateRaised || todayStr()) + "</div><div>" +
+    fieldDate("f_dueDate", "Due date", v.dueDate || "") + "</div></div>";
+  html += fieldDate("f_dateClosed", "Date closed", v.dateClosed || "");
+
+  html += "<hr class='section-divider'>";
+  html += "<div id='typeFields'>" + buildTypeFields(v) + "</div>";
+
+  html += "<hr class='section-divider'>";
+  html += fieldTextarea("f_notes", "Notes", v.notes || "");
+
+  body.innerHTML = html;
+
+  // Changing the Type rebuilds status options and the type-specific field block.
+  document.getElementById("f_type").addEventListener("change", function () {
+    draftType = this.value;
+    fillSelect2("f_status", STATUS_BY_TYPE[draftType], STATUS_BY_TYPE[draftType][0]);
+    document.getElementById("typeFields").innerHTML = buildTypeFields(mode === "edit" ? v : {});
+    bindExposure();
+  });
+
+  // Changing the Project rebuilds the Owner and Assigned to pickers for that project.
+  document.getElementById("f_project").addEventListener("change", function () {
+    var proj = this.value;
+    var curOwner = val("f_owner"), curAssigned = val("f_assignedTo");
+    document.getElementById("personFields").innerHTML = personFieldsHtml(proj, curOwner, curAssigned);
+  });
+  bindExposure();
+}
+
+/* Owner and Assigned to are chosen from the roster for the item's project.
+   Any name already stored is kept as an option so imported or reassigned data is not lost. */
+function personFieldsHtml(project, owner, assigned) {
+  return "<div class='field-2'><div>" +
+    fieldPersonSelect("f_owner", "Owner", owner || "", project) + "</div><div>" +
+    fieldPersonSelect("f_assignedTo", "Assigned to", assigned || "", project) + "</div></div>";
+}
+function fieldPersonSelect(id, label, value, project) {
+  var opts = state.stakeholders
+    .filter(function (st) { return st.project === project; })
+    .map(function (st) { return st.name; });
+  if (value && opts.indexOf(value) === -1) opts.push(value);
+  return fieldSelect(id, label, [""].concat(opts), value);
+}
+
+function fillSelect2(id, options, value) {
+  var sel = document.getElementById(id);
+  sel.innerHTML = options.map(function (o) {
+    return "<option value='" + esc(o) + "'" + (o === value ? " selected" : "") + ">" + esc(o) + "</option>";
+  }).join("");
+}
+
+function buildTypeFields(v) {
+  v = v || {};
+  var html = "";
+  if (draftType === "Risk") {
+    html += "<div class='field-2'><div>" +
+      fieldSelect("f_probability", "Probability", ["", "High", "Medium", "Low"], v.probability || "") + "</div><div>" +
+      fieldSelect("f_impact", "Impact", ["", "High", "Medium", "Low"], v.impact || "") + "</div></div>";
+    html += "<div class='field'><label>Exposure (auto)</label><div class='exposure-readout' id='exposureReadout'>Set probability and impact.</div></div>";
+    html += fieldSelect("f_responseStrategy", "Mitigation strategy", [""].concat(RESPONSE_STRATEGIES), v.responseStrategy || "");
+    html += fieldTextarea("f_mitigationAction", "Mitigation action", v.mitigationAction || "");
+    html += fieldTextarea("f_contingencyPlan", "Contingency plan", v.contingencyPlan || "");
+  } else if (draftType === "Issue") {
+    html += fieldTextarea("f_resolutionPlan", "Resolution plan", v.resolutionPlan || "");
+  } else if (draftType === "Decision") {
+    html += fieldTextarea("f_rationale", "Rationale", v.rationale || "");
+    html += fieldTextarea("f_alternativesConsidered", "Alternatives considered", v.alternativesConsidered || "");
+    html += fieldText("f_decisionAuthority", "Decision authority", v.decisionAuthority || "");
+  } else if (draftType === "Assumption") {
+    html += fieldTextarea("f_rationale", "Rationale", v.rationale || "");
+    html += fieldSelect("f_validationStatus", "Validation status", [""].concat(VALIDATION_STATUSES), v.validationStatus || "");
+    html += fieldTextarea("f_impactIfInvalid", "Impact if invalid", v.impactIfInvalid || "");
+  } else if (draftType === "Action") {
+    html += fieldTextarea("f_expectedOutcome", "Expected outcome", v.expectedOutcome || "");
+    html += fieldTextarea("f_progressUpdate", "Latest progress update", v.progressUpdate || "");
+  }
+  return html;
+}
+
+function bindExposure() {
+  if (draftType !== "Risk") return;
+  var p = document.getElementById("f_probability");
+  var i = document.getElementById("f_impact");
+  var out = document.getElementById("exposureReadout");
+  if (!p || !i || !out) return;
+  function update() {
+    var ps = LEVEL_SCORE[p.value], is = LEVEL_SCORE[i.value];
+    if (!ps || !is) { out.textContent = "Set probability and impact."; return; }
+    var score = ps * is;
+    var band = exposureBand(score);
+    out.innerHTML = "Score " + score + " of 9 <span class='band " + band + "'>(" + band + ")</span>";
+  }
+  p.addEventListener("change", update);
+  i.addEventListener("change", update);
+  update();
+}
+
+function buildDrawerFoot(item, mode) {
+  var foot = document.getElementById("drawerFoot");
+  foot.innerHTML = "";
+  if (mode === "view") {
+    var closeBtn = document.createElement("button");
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", closeDrawer);
+    foot.appendChild(closeBtn);
+    return;
+  }
+  if (mode === "edit") {
+    var del = document.createElement("button");
+    del.textContent = "Delete";
+    del.className = "danger";
+    del.addEventListener("click", function () { deleteItem(item.id); });
+    foot.appendChild(del);
+
+    var lifeBtn = document.createElement("button");
+    if (isClosedItem(item)) {
+      lifeBtn.textContent = "Reopen item";
+      lifeBtn.addEventListener("click", function () { reopenItem(item.id); closeDrawer(); });
+    } else {
+      lifeBtn.textContent = "Close item";
+      lifeBtn.addEventListener("click", function () { closeItem(item.id); closeDrawer(); });
+    }
+    foot.appendChild(lifeBtn);
+  }
+  var cancel = document.createElement("button");
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", closeDrawer);
+  var save = document.createElement("button");
+  save.textContent = "Save item";
+  save.className = "primary";
+  save.addEventListener("click", saveItem);
+  foot.appendChild(cancel);
+  foot.appendChild(save);
+}
+
+function val(id) { var el = document.getElementById(id); return el ? el.value.trim() : ""; }
+
+function saveItem() {
+  if (!state.projects.length) { alert("Add at least one project before creating items."); return; }
+  var title = val("f_title");
+  if (!title) { alert("Title is required."); return; }
+  var project = val("f_project");
+  if (!project || project === "(no projects yet)") { alert("Select a project."); return; }
+
+  var data = {
+    type: draftType,
+    project: project,
+    title: title,
+    description: val("f_description"),
+    category: val("f_category"),
+    priority: val("f_priority"),
+    owner: val("f_owner"),
+    assignedTo: val("f_assignedTo"),
+    status: val("f_status"),
+    dateRaised: val("f_dateRaised"),
+    dueDate: val("f_dueDate"),
+    dateClosed: val("f_dateClosed"),
+    notes: val("f_notes")
+  };
+  if (draftType === "Risk") {
+    data.probability = val("f_probability");
+    data.impact = val("f_impact");
+    data.responseStrategy = val("f_responseStrategy");
+    data.mitigationAction = val("f_mitigationAction");
+    data.contingencyPlan = val("f_contingencyPlan");
+  } else if (draftType === "Issue") {
+    data.resolutionPlan = val("f_resolutionPlan");
+  } else if (draftType === "Decision") {
+    data.rationale = val("f_rationale");
+    data.alternativesConsidered = val("f_alternativesConsidered");
+    data.decisionAuthority = val("f_decisionAuthority");
+  } else if (draftType === "Assumption") {
+    data.rationale = val("f_rationale");
+    data.validationStatus = val("f_validationStatus");
+    data.impactIfInvalid = val("f_impactIfInvalid");
+  } else if (draftType === "Action") {
+    data.expectedOutcome = val("f_expectedOutcome");
+    data.progressUpdate = val("f_progressUpdate");
+  }
+
+  if (editingId) {
+    var idx = -1;
+    state.items.forEach(function (it, i) { if (it.id === editingId) idx = i; });
+    if (idx !== -1) {
+      var existing = state.items[idx];
+      var merged = buildItem(data);
+      merged.id = existing.id;
+      merged.lastUpdated = todayStr();
+      state.items[idx] = merged;
+    }
+  } else {
+    addItemToState(state, data);
+  }
+  saveData();
+  closeDrawer();
+  renderAll();
+}
+
+function deleteItem(id) {
+  if (!confirm("Delete this item? This cannot be undone.")) return;
+  state.items = state.items.filter(function (it) { return it.id !== id; });
+  saveData();
+  closeDrawer();
+  renderAll();
+}
+
+/* ---- JSON backup and merge ---- */
+function download(filename, text, mime) {
+  var blob = new Blob([text], { type: mime || "application/octet-stream" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+function exportJson() {
+  download("RAID_data_" + todayStr() + ".json", JSON.stringify(state, null, 2), "application/json");
+}
+function downloadUpdated() {
+  download("RAID_updated_" + todayStr() + ".json", JSON.stringify(state, null, 2), "application/json");
+}
+
+function importJson(file) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      var incoming = JSON.parse(reader.result);
+      mergeData(incoming);
+    } catch (e) {
+      alert("That file could not be read as JSON.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function mergeData(incoming) {
+  incoming = normalize(incoming);
+  // adopt company name if we do not have one yet
+  if (!state.meta.company && incoming.meta.company) state.meta.company = incoming.meta.company;
+  // merge stakeholders (dedupe by name and project, adopt email when missing)
+  incoming.stakeholders.forEach(function (p) {
+    var match = state.stakeholders.filter(function (s) { return s.name === p.name && s.project === p.project; })[0];
+    if (!match) state.stakeholders.push({ name: p.name, project: p.project, email: p.email || "" });
+    else if (!match.email && p.email) match.email = p.email;
+  });
+  // merge projects (respect the cap, keep existing first)
+  incoming.projects.forEach(function (p) {
+    if (state.projects.indexOf(p) === -1 && state.projects.length < MAX_PROJECTS) state.projects.push(p);
+  });
+  // merge items by id
+  var byId = {};
+  state.items.forEach(function (it) { byId[it.id] = it; });
+  var added = 0, updated = 0;
+  incoming.items.forEach(function (it) {
+    var built = buildItem(it);
+    if (byId[it.id]) { // update in place
+      var idx = -1;
+      state.items.forEach(function (x, i) { if (x.id === it.id) idx = i; });
+      built.id = it.id;
+      state.items[idx] = built;
+      updated++;
+    } else {
+      built.id = it.id || nextId(state);
+      state.items.push(built);
+      byId[built.id] = built;
+      added++;
+    }
+  });
+  state = normalize(state);
+  saveData();
+  renderAll();
+  alert("Merge complete. " + added + " added, " + updated + " updated.");
+}
+
+/* ---- Export standalone files (MASTER only) ---- */
+function subsetFor(project) {
+  var items = project ? state.items.filter(function (it) { return it.project === project; }) : state.items.slice();
+  var projects = project ? [project] : state.projects.slice();
+  var stakeholders = project
+    ? state.stakeholders.filter(function (st) { return st.project === project; })
+    : state.stakeholders.slice();
+  return {
+    meta: { company: state.meta.company },
+    projects: projects,
+    stakeholders: clone(stakeholders),
+    items: clone(items),
+    counter: state.counter
+  };
+}
+
+function buildExportHtml(data, mode, exportId) {
+  // Escape every "<" inside the JSON so an injected closing script tag cannot break out.
+  var json = JSON.stringify(data).replace(/</g, "\\u003c");
+  var block =
+    "/* INJECT-START (export replaces this whole block, do not edit the markers) */\n" +
+    "var EMBEDDED_DATA = " + json + ";\n" +
+    "var EMBEDDED_MODE = " + JSON.stringify(mode) + ";\n" +
+    "var EXPORT_ID = " + JSON.stringify(exportId) + ";\n" +
+    "/* INJECT-END */";
+  return PRISTINE_HTML.replace(/\/\* INJECT-START[\s\S]*?INJECT-END \*\//, block);
+}
+
+function makeExportId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function safeName(name) { return String(name).replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+
+function exportFile(project, mode) {
+  var data = subsetFor(project);
+  if (project && !data.items.length) {
+    if (!confirm("This project has no items yet. Export an empty file anyway?")) return;
+  }
+  var html = buildExportHtml(data, mode, makeExportId());
+  var label = project ? safeName(project) : "Portfolio";
+  var name = "RAID_" + label + "_" + mode + "_" + todayStr() + ".html";
+  download(name, html, "text/html");
+}
+
+/* ---- Filter wiring ---- */
+function applyChipState() {
+  document.getElementById("typeChips").querySelectorAll(".chip").forEach(function (c) {
+    var t = c.getAttribute("data-type");
+    c.setAttribute("aria-pressed", String(filters.types.indexOf(t) !== -1));
+  });
+}
+function wireFilters() {
+  document.getElementById("fProject").addEventListener("change", function () { filters.project = this.value; renderTable(); });
+  document.getElementById("fOwner").addEventListener("change", function () { filters.owner = this.value; renderTable(); });
+  document.getElementById("fAssigned").addEventListener("change", function () { filters.assigned = this.value; renderTable(); });
+  document.getElementById("fStatus").addEventListener("change", function () { filters.status = this.value; renderTable(); });
+  document.getElementById("fSearch").addEventListener("input", function () { filters.search = this.value; renderTable(); });
+  document.getElementById("typeChips").querySelectorAll(".chip").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var t = chip.getAttribute("data-type");
+      var on = chip.getAttribute("aria-pressed") === "true";
+      chip.setAttribute("aria-pressed", String(!on));
+      if (on) filters.types = filters.types.filter(function (x) { return x !== t; });
+      else filters.types.push(t);
+      renderTable();
+    });
+  });
+  document.getElementById("clearFilters").addEventListener("click", function () {
+    filters = { project: "", types: ["Risk", "Assumption", "Issue", "Decision"], owner: "", assigned: "", status: "", search: "" };
+    document.getElementById("fSearch").value = "";
+    applyChipState();
+    renderFilterOptions();
+    renderTable();
+  });
+  applyChipState();
+}
+
+/* ---- Boot ---- */
+function applyModeChrome() {
+  document.getElementById("modePill").textContent = MODE;
+
+  if (MODE === "EDIT") {
+    document.getElementById("editBanner").classList.remove("hidden");
+    document.getElementById("editReturnPanel").classList.remove("hidden");
+    document.getElementById("sharedFooter").classList.remove("hidden");
+  }
+  if (MODE === "VIEW") {
+    document.getElementById("sharedFooter").classList.remove("hidden");
+  }
+  if (!IS_MASTER) {
+    document.getElementById("contactsPanel").classList.remove("hidden");
+  }
+  if (IS_MASTER) {
+    document.getElementById("adminPanel").classList.remove("hidden");
+  }
+  if (!CAN_ADD) {
+    document.getElementById("addItemWrap").classList.add("hidden");
+  }
+}
+
+function wireActions() {
+  document.getElementById("overlay").addEventListener("click", closeDrawer);
+  document.getElementById("drawerClose").addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeDrawer(); });
+
+  document.getElementById("tabTracker").addEventListener("click", function () { showView("tracker"); });
+  document.getElementById("tabDashboard").addEventListener("click", function () { showView("dashboard"); });
+  document.getElementById("dashProject").addEventListener("change", function () {
+    dashProjectFilter = this.value;
+    renderDashboard();
+  });
+
+  if (CAN_ADD) {
+    document.getElementById("addItemBtn").addEventListener("click", function () { openDrawer(null); });
+  }
+  if (MODE === "EDIT") {
+    document.getElementById("downloadUpdatedBtn").addEventListener("click", downloadUpdated);
+  }
+  if (IS_MASTER) {
+    document.getElementById("companyName").addEventListener("input", applyCompany);
+    document.getElementById("addStakeholderBtn").addEventListener("click", addStakeholder);
+    document.getElementById("newStakeholder").addEventListener("keydown", function (e) { if (e.key === "Enter") addStakeholder(); });
+    document.getElementById("newStakeholderEmail").addEventListener("keydown", function (e) { if (e.key === "Enter") addStakeholder(); });
+    document.getElementById("addProjectBtn").addEventListener("click", addProject);
+    document.getElementById("newProjectName").addEventListener("keydown", function (e) { if (e.key === "Enter") addProject(); });
+    document.getElementById("exportJsonBtn").addEventListener("click", exportJson);
+    document.getElementById("importJsonFile").addEventListener("change", function () {
+      if (this.files && this.files[0]) { importJson(this.files[0]); this.value = ""; }
+    });
+    function shareMode() { return document.getElementById("shareReadOnly").checked ? "VIEW" : "EDIT"; }
+    document.getElementById("sharePortfolioBtn").addEventListener("click", function () {
+      exportFile("", shareMode());
+    });
+    document.getElementById("shareProjectBtn").addEventListener("click", function () {
+      var p = document.getElementById("exportProject").value;
+      if (!p) { alert("Choose a project to share."); return; }
+      exportFile(p, shareMode());
+    });
+  }
+}
+
+function init() {
+  state = loadData();
+  applyModeChrome();
+  wireFilters();
+  wireActions();
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>

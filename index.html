@@ -262,6 +262,27 @@ th.no-sort { cursor: default; }
   z-index: 40;
 }
 .overlay.open { display: block; }
+#confirmOverlay { z-index: 60; }
+#confirmOverlay.open { display: flex; align-items: center; justify-content: center; }
+.confirm-box {
+  background: var(--brand-surface);
+  border-radius: 8px;
+  width: 440px; max-width: 92vw;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+.confirm-head { padding: 14px 18px; border-bottom: 1px solid var(--brand-border); background: var(--brand-surface-alt); }
+.confirm-head h3 { margin: 0; font-size: 15px; color: var(--type-risk); }
+.confirm-body { padding: 16px 18px 4px; }
+.confirm-body p { margin: 0 0 10px; }
+.confirm-field { padding: 4px 18px 8px; }
+.confirm-field label { display: block; font-weight: 600; font-size: 12px; margin: 0 0 4px; color: var(--brand-muted); }
+.confirm-field input { width: 100%; padding: 8px 10px; border: 1px solid var(--brand-border); border-radius: 4px; }
+.confirm-warn { font-size: 12px; color: var(--type-risk); margin: 6px 0 0; min-height: 14px; }
+.confirm-foot { padding: 12px 18px; border-top: 1px solid var(--brand-border); display: flex; gap: 8px; justify-content: flex-end; background: var(--brand-surface-alt); }
+.confirm-foot .danger { background: var(--type-risk); color: #fff; border-color: var(--type-risk); }
+.confirm-foot .danger:hover { background: #93191f; }
+.confirm-foot .danger:disabled { background: #d9a2a5; border-color: #d9a2a5; cursor: not-allowed; }
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0;
   width: 480px; max-width: 92vw;
@@ -446,7 +467,7 @@ footer.appfoot {
       </div>
 
       <div class="admin-col" id="exportAdmin">
-        <h2>Share files</h2>
+        <h2>Share via link</h2>
         <div class="field">
           <label for="shareAccess">Access level</label>
           <select id="shareAccess">
@@ -455,7 +476,7 @@ footer.appfoot {
           </select>
         </div>
         <div class="panel-row">
-          <button class="primary" id="sharePortfolioBtn">Share full portfolio</button>
+          <button class="primary" id="sharePortfolioBtn">Get full portfolio link</button>
         </div>
         <hr class="section-divider">
         <div class="field">
@@ -463,9 +484,19 @@ footer.appfoot {
           <select id="exportProject"></select>
         </div>
         <div class="panel-row">
-          <button id="shareProjectBtn">Share this project</button>
+          <button id="shareProjectBtn">Get project link</button>
         </div>
-        <p class="hint">A client file contains only the project you share, never the full portfolio. Full read/write lets them add, edit, and update their own project and send changes back. View only is strictly read only. Access is file-based, not a secured system.</p>
+        <div class="field hidden" id="shareOutput">
+          <hr class="section-divider">
+          <label for="shareUrl">Shareable link (copied to clipboard)</label>
+          <input type="text" id="shareUrl" readonly>
+          <div class="panel-row" style="margin-top:8px;">
+            <button id="copyShareUrl">Copy link</button>
+            <a id="openShareUrl" target="_blank" rel="noopener"><button type="button">Open preview</button></a>
+          </div>
+          <p class="hint" id="shareHint"></p>
+        </div>
+        <p class="hint">The link opens directly in the recipient's browser, no download. It carries only the project you shared, never the full portfolio. Full read/write lets them add, edit, and update their own copy; view only is strictly read only. This is file and link based access, not a secured system.</p>
       </div>
 
     </div>
@@ -563,9 +594,26 @@ footer.appfoot {
   </div>
 
   <footer class="appfoot hidden" id="sharedFooter">
-    Access is file-based. This file contains only the data shared with you. This is not a secured system. Do not redistribute.
+    This view contains only the data shared with you. This is not a secured system. Do not redistribute.
   </footer>
 
+</div>
+
+<!-- Type-to-confirm delete modal -->
+<div class="overlay" id="confirmOverlay">
+  <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="confirm-head"><h3 id="confirmTitle">Delete project</h3></div>
+    <div class="confirm-body" id="confirmBody"></div>
+    <div class="confirm-field">
+      <label for="confirmInput">Type Delete to confirm</label>
+      <input type="text" id="confirmInput" autocomplete="off" placeholder="Delete">
+      <p class="confirm-warn" id="confirmWarn"></p>
+    </div>
+    <div class="confirm-foot">
+      <button id="confirmCancelBtn">Cancel</button>
+      <button id="confirmDeleteBtn" class="danger" disabled>Delete project</button>
+    </div>
+  </div>
 </div>
 
 <!-- Drawer for add/edit/view -->
@@ -592,6 +640,25 @@ var EMBEDDED_DATA = null;
 var EMBEDDED_MODE = null;
 var EXPORT_ID = null;
 /* INJECT-END */
+
+/* ---- Shared link (URL fragment) takes precedence over file injection ----
+   A share link points at this same hosted app with the shared data encoded in
+   the location hash (#raid=...). The fragment never leaves the browser, so this
+   works on static hosting with zero network calls. If a link payload is present
+   it overrides the injected defaults below. */
+(function applyLinkPayload() {
+  try {
+    var marker = "#raid=";
+    var h = (typeof location !== "undefined" && location.hash) ? location.hash : "";
+    if (h.indexOf(marker) !== 0) return;
+    var p = decodeSharePayload(h.slice(marker.length));
+    if (p && p.d) {
+      EMBEDDED_DATA = p.d;
+      EMBEDDED_MODE = p.m || "VIEW";
+      EXPORT_ID = p.x || "link";
+    }
+  } catch (e) { /* malformed link falls through to normal load */ }
+})();
 
 /* ---- Mode ---- */
 var MODE = EMBEDDED_MODE || "MASTER";  // MASTER | VIEW | EDIT
@@ -1441,16 +1508,67 @@ function clearProject(idx) {
 
 function removeProject(idx) {
   var name = state.projects[idx];
-  var used = state.items.filter(function (it) { return it.project === name; }).length;
-  var msg = used
-    ? "Remove project '" + name + "'? " + used + " item(s) belong to it and will also be deleted."
-    : "Remove project '" + name + "'?";
-  if (!confirm(msg)) return;
-  state.projects.splice(idx, 1);
-  state.items = state.items.filter(function (it) { return it.project !== name; });
-  state.stakeholders = state.stakeholders.filter(function (st) { return st.project !== name; });
-  if (filters.project === name) filters.project = "";
-  saveData(); renderAll();
+  var itemCount = state.items.filter(function (it) { return it.project === name; }).length;
+  var peopleCount = state.stakeholders.filter(function (st) { return st.project === name; }).length;
+  openDeleteConfirm(name, itemCount, peopleCount, function () {
+    state.projects.splice(idx, 1);
+    state.items = state.items.filter(function (it) { return it.project !== name; });
+    state.stakeholders = state.stakeholders.filter(function (st) { return st.project !== name; });
+    if (filters.project === name) filters.project = "";
+    if (state.meta.lastProject === name) state.meta.lastProject = "";
+    if (dashProjectFilter === name) dashProjectFilter = "";
+    saveData(); renderAll();
+  });
+}
+
+/* Type-to-confirm guard: the project and all its entries are only deleted
+   after the person types the exact word Delete, preventing accidental loss. */
+function openDeleteConfirm(name, itemCount, peopleCount, onConfirm) {
+  var overlay = document.getElementById("confirmOverlay");
+  var body = document.getElementById("confirmBody");
+  var input = document.getElementById("confirmInput");
+  var okBtn = document.getElementById("confirmDeleteBtn");
+  var cancelBtn = document.getElementById("confirmCancelBtn");
+  var warn = document.getElementById("confirmWarn");
+
+  body.innerHTML =
+    "<p>You are about to permanently delete the project <b>" + esc(name) + "</b> and everything in it: " +
+    "<b>" + itemCount + "</b> RAID item" + (itemCount === 1 ? "" : "s") + " and " +
+    "<b>" + peopleCount + "</b> stakeholder" + (peopleCount === 1 ? "" : "s") + ".</p>" +
+    "<p>This cannot be undone. To confirm, type <b>Delete</b> in the box below.</p>";
+  input.value = "";
+  warn.textContent = "";
+  okBtn.disabled = true;
+
+  function validate() {
+    var typed = input.value.trim();
+    okBtn.disabled = typed !== "Delete";
+    if (typed && typed !== "Delete") warn.textContent = "Type the word Delete exactly (capital D) to enable the button.";
+    else warn.textContent = "";
+  }
+  function close() {
+    overlay.classList.remove("open");
+    input.oninput = null; okBtn.onclick = null; cancelBtn.onclick = null; overlay.onclick = null;
+    document.removeEventListener("keydown", onKey);
+  }
+  function confirmNow() {
+    if (input.value.trim() !== "Delete") return;
+    close();
+    onConfirm();
+  }
+  function onKey(e) {
+    if (e.key === "Escape") close();
+    else if (e.key === "Enter" && input.value.trim() === "Delete") confirmNow();
+  }
+
+  input.oninput = validate;
+  okBtn.onclick = confirmNow;
+  cancelBtn.onclick = close;
+  overlay.onclick = function (e) { if (e.target === overlay) close(); };
+  document.addEventListener("keydown", onKey);
+
+  overlay.classList.add("open");
+  input.focus();
 }
 
 /* ---- Drawer: add, edit, view ---- */
@@ -1915,6 +2033,85 @@ function exportFile(project, mode) {
   download(name, html, "text/html");
 }
 
+/* ---- Shareable links (URL fragment, opens directly in a browser) ---- */
+
+/* Drop empty fields so the encoded payload stays small; buildItem restores
+   defaults when the link is opened. */
+function compactData(data) {
+  var d = clone(data);
+  d.items = d.items.map(function (it) {
+    var o = {};
+    Object.keys(it).forEach(function (k) { if (it[k] !== "" && it[k] != null) o[k] = it[k]; });
+    return o;
+  });
+  return d;
+}
+
+function encodeSharePayload(payload) {
+  var json = JSON.stringify(payload);
+  var b64 = btoa(unescape(encodeURIComponent(json)));
+  // URL-safe base64 for a clean fragment
+  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function decodeSharePayload(enc) {
+  var b64 = String(enc).replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  var json = decodeURIComponent(escape(atob(b64)));
+  var p = JSON.parse(json);
+  if (p && p.d && Array.isArray(p.d.items)) {
+    p.d.items = p.d.items.map(function (it) {
+      var built = buildItem(it);
+      built.id = it.id || built.id;
+      return built;
+    });
+  }
+  return p;
+}
+
+function shareLink(project, mode) {
+  var data = compactData(subsetFor(project));
+  var payload = { m: mode, x: makeExportId(), d: data };
+  var enc = encodeSharePayload(payload);
+  var base = location.origin + location.pathname;
+  var url = base + "#raid=" + enc;
+
+  var out = document.getElementById("shareOutput");
+  var input = document.getElementById("shareUrl");
+  var openLink = document.getElementById("openShareUrl");
+  var hint = document.getElementById("shareHint");
+  input.value = url;
+  openLink.href = url;
+  out.classList.remove("hidden");
+
+  var scope = project ? ("project '" + project + "'") : "the full portfolio";
+  var access = mode === "VIEW" ? "view only" : "read and write";
+  var msg = "Link for " + scope + " (" + access + "). Anyone with this link opens it directly in their browser; nothing downloads.";
+  if (location.protocol === "file:") {
+    msg += " Host this file first (for example on GitHub Pages), then generate the link so it works for others.";
+  }
+  if (url.length > 30000) {
+    msg += " This link is long; if a browser refuses to open it, share a single project rather than the whole portfolio.";
+  }
+  hint.textContent = msg;
+  copyToClipboard(url);
+}
+
+function copyToClipboard(text) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) { /* fall back below */ }
+  try {
+    var input = document.getElementById("shareUrl");
+    input.focus(); input.select();
+    document.execCommand("copy");
+    return true;
+  } catch (e) { return false; }
+}
+
 /* ---- Filter wiring ---- */
 function applyChipState() {
   document.getElementById("typeChips").querySelectorAll(".chip").forEach(function (c) {
@@ -2002,12 +2199,15 @@ function wireActions() {
     });
     function shareMode() { return document.getElementById("shareAccess").value === "VIEW" ? "VIEW" : "EDIT"; }
     document.getElementById("sharePortfolioBtn").addEventListener("click", function () {
-      exportFile("", shareMode());
+      shareLink("", shareMode());
     });
     document.getElementById("shareProjectBtn").addEventListener("click", function () {
       var p = document.getElementById("exportProject").value;
       if (!p) { alert("Choose a client project to share."); return; }
-      exportFile(p, shareMode());
+      shareLink(p, shareMode());
+    });
+    document.getElementById("copyShareUrl").addEventListener("click", function () {
+      if (copyToClipboard(document.getElementById("shareUrl").value)) alert("Link copied to clipboard.");
     });
   }
 }

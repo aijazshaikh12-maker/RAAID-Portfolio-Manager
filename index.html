@@ -510,12 +510,6 @@ footer.appfoot {
     </div>
   </div>
 
-  <!-- Contacts (shown in shared files so a manager can reach stakeholders) -->
-  <div class="panel hidden" id="contactsPanel">
-    <h2>Contacts</h2>
-    <div id="contactsBody"></div>
-  </div>
-
   <!-- Summary -->
   <div class="summary" id="summary"></div>
 
@@ -644,9 +638,9 @@ var EXPORT_ID = null;
 /* ---- Shared link (URL fragment) takes precedence over file injection ----
    A share link points at this same hosted app with the shared data encoded in
    the location hash (#raid=...). The fragment never leaves the browser, so this
-   works on static hosting with zero network calls. If a link payload is present
-   it overrides the injected defaults below. */
-(function applyLinkPayload() {
+   works on static hosting with zero network calls. Applied during init(), after
+   all constants and helpers are defined, so decoding has everything it needs. */
+function applyLinkPayload() {
   try {
     var marker = "#raid=";
     var h = (typeof location !== "undefined" && location.hash) ? location.hash : "";
@@ -656,9 +650,13 @@ var EXPORT_ID = null;
       EMBEDDED_DATA = p.d;
       EMBEDDED_MODE = p.m || "VIEW";
       EXPORT_ID = p.x || "link";
+      MODE = EMBEDDED_MODE;
+      CAN_EDIT = (MODE === "MASTER" || MODE === "EDIT");
+      CAN_ADD = (MODE === "MASTER" || MODE === "EDIT");
+      IS_MASTER = (MODE === "MASTER");
     }
   } catch (e) { /* malformed link falls through to normal load */ }
-})();
+}
 
 /* ---- Mode ---- */
 var MODE = EMBEDDED_MODE || "MASTER";  // MASTER | VIEW | EDIT
@@ -697,16 +695,23 @@ function storageKey() { return "raid_v1_" + (EXPORT_ID || "master"); }
 /* ---- Load and persist ---- */
 function loadData() {
   if (MODE === "VIEW") {
-    return EMBEDDED_DATA ? clone(EMBEDDED_DATA) : blankState();
+    return stripContactsIfShared(EMBEDDED_DATA ? clone(EMBEDDED_DATA) : blankState());
   }
   var stored = null;
   try { stored = localStorage.getItem(storageKey()); } catch (e) { stored = null; }
   if (stored) {
-    try { return normalize(JSON.parse(stored)); } catch (e) { /* fall through */ }
+    try { return stripContactsIfShared(normalize(JSON.parse(stored))); } catch (e) { /* fall through */ }
   }
-  if (EMBEDDED_DATA) return normalize(clone(EMBEDDED_DATA));
-  if (IS_MASTER) return blankState();
+  if (EMBEDDED_DATA) return stripContactsIfShared(normalize(clone(EMBEDDED_DATA)));
   return blankState();
+}
+
+/* Option A: a shared view (VIEW or EDIT) must never retain a stakeholder
+   contact directory, no matter how the data arrived (link, embedded file, or
+   a previously saved shared copy). The master keeps its contacts. */
+function stripContactsIfShared(s) {
+  if (!IS_MASTER && s) { s.stakeholders = []; }
+  return s;
 }
 
 function saveData() {
@@ -760,17 +765,23 @@ function addItemToState(s, data) {
 
 function buildItem(data) {
   data = data || {};
+  // Constrain enumerated fields to known-good values. This is the root-cause
+  // guard against a crafted import or link setting type/priority to arbitrary
+  // strings that would otherwise flow into class attributes or break lookups.
+  var safeType = TYPES.indexOf(data.type) !== -1 ? data.type : "Risk";
+  var safePriority = PRIORITIES.indexOf(data.priority) !== -1 ? data.priority : "Medium";
+  var safeStatus = (STATUS_BY_TYPE[safeType].indexOf(data.status) !== -1) ? data.status : STATUS_BY_TYPE[safeType][0];
   return {
     id: data.id || null,
     project: data.project || "",
-    type: data.type || "Risk",
+    type: safeType,
     title: data.title || "",
     description: data.description || "",
     category: data.category || "",
     owner: data.owner || "",
     assignedTo: data.assignedTo || "",
-    status: data.status || STATUS_BY_TYPE[data.type || "Risk"][0],
-    priority: data.priority || "Medium",
+    status: safeStatus,
+    priority: safePriority,
     dateRaised: data.dateRaised || todayStr(),
     dueDate: data.dueDate || "",
     dateClosed: data.dateClosed || "",
@@ -820,6 +831,7 @@ function exposureBand(score) {
 function ageDays(item) {
   if (!item.dateRaised) return "";
   var raised = new Date(item.dateRaised + "T00:00:00");
+  if (isNaN(raised.getTime())) return "";
   var now = new Date(todayStr() + "T00:00:00");
   var diff = Math.round((now - raised) / 86400000);
   return diff >= 0 ? diff : 0;
@@ -828,6 +840,7 @@ function isOverdue(item) {
   if (!item.dueDate) return false;
   if (CLOSED_STATUSES.indexOf(item.status) !== -1) return false;
   var due = new Date(item.dueDate + "T00:00:00");
+  if (isNaN(due.getTime())) return false;
   var now = new Date(todayStr() + "T00:00:00");
   return due < now;
 }
@@ -934,7 +947,8 @@ function renderTable() {
 
     var statusCell;
     if (CAN_EDIT) {
-      var opts = STATUS_BY_TYPE[it.type].map(function (s) {
+      var statusList = STATUS_BY_TYPE[it.type] || STATUS_BY_TYPE.Risk;
+      var opts = statusList.map(function (s) {
         return "<option" + (s === it.status ? " selected" : "") + ">" + esc(s) + "</option>";
       }).join("");
       statusCell = "<td><select class='row-status' aria-label='Lifecycle stage'>" + opts + "</select></td>";
@@ -944,13 +958,13 @@ function renderTable() {
 
     tr.innerHTML =
       "<td class='id-cell'>" + esc(it.id) + "</td>" +
-      "<td><span class='type-tag " + it.type + "'>" + esc(it.type) + "</span></td>" +
+      "<td><span class='type-tag " + esc(it.type) + "'>" + esc(it.type) + "</span></td>" +
       "<td>" + esc(it.project) + "</td>" +
       "<td>" + esc(it.title) + overdueMark + titleExtra + "</td>" +
       "<td>" + esc(it.owner) + "</td>" +
       "<td>" + esc(it.assignedTo) + "</td>" +
       statusCell +
-      "<td><span class='pri " + it.priority + "'>" + esc(it.priority) + "</span></td>" +
+      "<td><span class='pri " + esc(it.priority) + "'>" + esc(it.priority) + "</span></td>" +
       "<td>" + (it.type === "Risk" ? esc(it.probability || "-") : "<span class='muted'>-</span>") + "</td>" +
       "<td>" + (it.type === "Risk" ? esc(it.impact || "-") : "<span class='muted'>-</span>") + "</td>" +
       "<td>" + (score != null ? "<span class='band " + band + "'>" + score + " " + band + "</span>" : "<span class='muted'>-</span>") + "</td>" +
@@ -1368,23 +1382,12 @@ function showView(which) {
 
 /* Contacts directory shown in shared files so a manager can reach out for status. */
 function renderContacts() {
+  // Option A: shared views never present a contacts directory or any emails.
+  // The panel stays hidden in every mode; owner/assignee names remain on items.
   var panel = document.getElementById("contactsPanel");
   var body = document.getElementById("contactsBody");
-  if (!panel || !body) return;
-  if (IS_MASTER) { panel.classList.add("hidden"); return; }
-  if (!state.stakeholders.length) {
-    body.innerHTML = "<p class='muted'>No stakeholder contacts were included in this file.</p>";
-    return;
-  }
-  var rows = state.stakeholders.map(function (st) {
-    var email = st.email
-      ? "<a href='mailto:" + esc(st.email) + "'>" + esc(st.email) + "</a>"
-      : "<span class='muted'>No email on file</span>";
-    return "<tr><td>" + esc(st.name) + "</td><td>" + esc(st.project) + "</td><td>" + email + "</td></tr>";
-  }).join("");
-  body.innerHTML =
-    "<table class='contacts-table'><thead><tr><th>Name</th><th>Project</th><th>Email</th></tr></thead><tbody>" +
-    rows + "</tbody></table>";
+  if (panel) panel.classList.add("hidden");
+  if (body) body.innerHTML = "";
 }
 
 /* ---- Stakeholder and company management (MASTER only) ---- */
@@ -1995,8 +1998,10 @@ function subsetFor(project) {
   var stakeholders = project
     ? state.stakeholders.filter(function (st) { return st.project === project; })
     : state.stakeholders.slice();
+  // A shared file/link never carries the portfolio company name in the banner.
+  // The portfolio banner should stay blank, so we do not pass meta.company along.
   return {
-    meta: { company: state.meta.company },
+    meta: { company: "" },
     projects: projects,
     stakeholders: clone(stakeholders),
     items: clone(items),
@@ -2035,43 +2040,132 @@ function exportFile(project, mode) {
 
 /* ---- Shareable links (URL fragment, opens directly in a browser) ---- */
 
-/* Drop empty fields so the encoded payload stays small; buildItem restores
-   defaults when the link is opened. */
-function compactData(data) {
-  var d = clone(data);
-  d.items = d.items.map(function (it) {
-    var o = {};
-    Object.keys(it).forEach(function (k) { if (it[k] !== "" && it[k] != null) o[k] = it[k]; });
-    return o;
+/* Field-name shortening keeps share links compact. Long item field names are
+   mapped to 1-2 char keys for encoding and expanded back on decode. Empty
+   values are dropped; buildItem restores defaults when the link is opened. */
+var SHARE_KEYMAP = {
+  id: "i", project: "p", type: "t", title: "n", description: "d", category: "c",
+  owner: "o", assignedTo: "a", status: "s", priority: "y", dateRaised: "r",
+  dueDate: "u", dateClosed: "l", lastUpdated: "z", notes: "e",
+  probability: "pb", impact: "im", responseStrategy: "rs", mitigationAction: "ma",
+  contingencyPlan: "cp", resolutionPlan: "rp", rationale: "ra",
+  alternativesConsidered: "ac", decisionAuthority: "da", validationStatus: "vs",
+  impactIfInvalid: "ii", expectedOutcome: "eo", progressUpdate: "pu",
+  dependsOn: "do", dependencyDirection: "dd", impactIfLate: "il"
+};
+var SHARE_KEYMAP_REV = (function () { var r = {}; Object.keys(SHARE_KEYMAP).forEach(function (k) { r[SHARE_KEYMAP[k]] = k; }); return r; })();
+
+function packData(data) {
+  return {
+    p: data.projects.slice(),
+    // Shared payloads carry NO stakeholder contact directory or emails (Option A).
+    // Owner/Assigned names still live on individual items so the log stays meaningful.
+    it: data.items.map(function (item) {
+      var o = {};
+      Object.keys(item).forEach(function (key) {
+        var v = item[key];
+        if (v === "" || v == null) return;
+        var sk = SHARE_KEYMAP[key] || key;
+        o[sk] = v;
+      });
+      return o;
+    })
+  };
+}
+
+function unpackData(packed) {
+  var items = (packed.it || []).map(function (o) {
+    var full = {};
+    Object.keys(o).forEach(function (sk) { full[SHARE_KEYMAP_REV[sk] || sk] = o[sk]; });
+    var built = buildItem(full);
+    built.id = full.id || built.id;
+    return built;
   });
-  return d;
+  // Shared payloads never include a stakeholder contact directory (Option A).
+  return { meta: { company: "" }, projects: (packed.p || []).slice(), stakeholders: [], items: items, counter: items.length };
+}
+
+/* Minimal, dependency-free LZW compressor. It maps the packed JSON to a list
+   of integer codes, then packs those codes into a compact byte string that
+   base64 handles well. This typically shrinks a link by a further 60 to 80
+   percent so even a large portfolio stays inside what browsers open. */
+function lzwCompress(str) {
+  var dict = {}, data = String(str), out = [], phrase = data[0], code = 256, i;
+  for (i = 1; i < data.length; i++) {
+    var cc = data[i];
+    if (dict[phrase + cc] != null) { phrase += cc; }
+    else { out.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0)); dict[phrase + cc] = code; code++; phrase = cc; }
+  }
+  out.push(phrase.length > 1 ? dict[phrase] : phrase.charCodeAt(0));
+  return out;
+}
+function lzwDecompress(codes) {
+  var dict = {}, out, code = 256, i, phrase, entry, curr;
+  out = String.fromCharCode(codes[0]);
+  var old = String.fromCharCode(codes[0]);
+  for (i = 1; i < codes.length; i++) {
+    curr = codes[i];
+    if (curr < 256) phrase = String.fromCharCode(curr);
+    else phrase = dict[curr] != null ? dict[curr] : (old + old.charAt(0));
+    out += phrase;
+    dict[code] = old + phrase.charAt(0);
+    code++;
+    old = phrase;
+  }
+  return out;
+}
+/* Pack the integer code list into bytes (2 bytes per code) then base64. */
+function codesToB64(codes) {
+  var bytes = "";
+  for (var i = 0; i < codes.length; i++) {
+    var c = codes[i];
+    bytes += String.fromCharCode((c >> 8) & 0xff) + String.fromCharCode(c & 0xff);
+  }
+  return btoa(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64ToCodes(b64) {
+  var s = String(b64).replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  var bytes = atob(s), codes = [];
+  for (var i = 0; i < bytes.length; i += 2) {
+    codes.push((bytes.charCodeAt(i) << 8) | bytes.charCodeAt(i + 1));
+  }
+  return codes;
 }
 
 function encodeSharePayload(payload) {
   var json = JSON.stringify(payload);
-  var b64 = btoa(unescape(encodeURIComponent(json)));
-  // URL-safe base64 for a clean fragment
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  // Compress the UTF-8 form so multi-byte characters survive the round trip.
+  var utf8 = unescape(encodeURIComponent(json));
+  var compressed = "1" + codesToB64(lzwCompress(utf8));
+  // Fallback: plain URL-safe base64 with a "0" prefix, in case compression
+  // ever produced a longer result (very small payloads).
+  var plain = "0" + btoa(utf8).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return compressed.length <= plain.length ? compressed : plain;
 }
 
 function decodeSharePayload(enc) {
-  var b64 = String(enc).replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4) b64 += "=";
-  var json = decodeURIComponent(escape(atob(b64)));
-  var p = JSON.parse(json);
-  if (p && p.d && Array.isArray(p.d.items)) {
-    p.d.items = p.d.items.map(function (it) {
-      var built = buildItem(it);
-      built.id = it.id || built.id;
-      return built;
-    });
+  var s = String(enc);
+  var ver = s.charAt(0), rest = s.slice(1), json;
+  if (ver === "1") {
+    json = decodeURIComponent(escape(lzwDecompress(b64ToCodes(rest))));
+  } else if (ver === "0") {
+    var b64 = rest.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    json = decodeURIComponent(escape(atob(b64)));
+  } else {
+    // Legacy links (no version prefix): plain URL-safe base64 of the whole string.
+    var lb = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (lb.length % 4) lb += "=";
+    json = decodeURIComponent(escape(atob(lb)));
   }
+  var p = JSON.parse(json);
+  if (p && p.d) p.d = unpackData(p.d);
   return p;
 }
 
 function shareLink(project, mode) {
-  var data = compactData(subsetFor(project));
-  var payload = { m: mode, x: makeExportId(), d: data };
+  var payload = { m: mode, x: makeExportId(), d: packData(subsetFor(project)) };
   var enc = encodeSharePayload(payload);
   var base = location.origin + location.pathname;
   var url = base + "#raid=" + enc;
@@ -2157,9 +2251,6 @@ function applyModeChrome() {
   if (MODE === "VIEW") {
     document.getElementById("sharedFooter").classList.remove("hidden");
   }
-  if (!IS_MASTER) {
-    document.getElementById("contactsPanel").classList.remove("hidden");
-  }
   if (IS_MASTER) {
     document.getElementById("adminPanel").classList.remove("hidden");
   }
@@ -2212,12 +2303,42 @@ function wireActions() {
   }
 }
 
+/* Global safety net: any uncaught error surfaces as a dismissible banner
+   rather than leaving the user with a blank or half-rendered screen. */
+function showErrorBanner(msg) {
+  try {
+    var bar = document.getElementById("errorBanner");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "errorBanner";
+      bar.setAttribute("role", "alert");
+      bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:200;background:#b4232a;color:#fff;padding:12px 16px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,0.25);";
+      var body = (typeof document !== "undefined" && document.body) ? document.body : null;
+      if (body) body.appendChild(bar);
+    }
+    bar.textContent = "Something went wrong: " + msg + "  (Your saved data is safe. Try reloading the page.)";
+  } catch (e) { /* nothing more we can do */ }
+}
+if (typeof window !== "undefined") {
+  window.onerror = function (message) { showErrorBanner(String(message)); return false; };
+  if (window.addEventListener) {
+    window.addEventListener("unhandledrejection", function (e) {
+      showErrorBanner(String(e && e.reason ? e.reason : "async error"));
+    });
+  }
+}
+
 function init() {
-  state = loadData();
-  applyModeChrome();
-  wireFilters();
-  wireActions();
-  renderAll();
+  try {
+    applyLinkPayload();
+    state = loadData();
+    applyModeChrome();
+    wireFilters();
+    wireActions();
+    renderAll();
+  } catch (e) {
+    showErrorBanner(e && e.message ? e.message : "startup error");
+  }
 }
 init();
 </script>

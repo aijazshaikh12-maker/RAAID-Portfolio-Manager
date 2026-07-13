@@ -27,6 +27,7 @@
   --type-issue: #1f6feb;
   --type-decision: #5a3fa0;
   --type-action: #0f766e;
+  --type-dependency: #be185d;
 
   --band-low: #2e7d5b;
   --band-medium: #b8860b;
@@ -161,6 +162,7 @@ label { display: block; font-weight: 600; font-size: 12px; margin: 0 0 4px; colo
 .stat.issue .num { color: var(--type-issue); }
 .stat.decision .num { color: var(--type-decision); }
 .stat.action .num { color: var(--type-action); }
+.stat.dependency .num { color: var(--type-dependency); }
 
 /* Filters */
 .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
@@ -182,6 +184,7 @@ label { display: block; font-weight: 600; font-size: 12px; margin: 0 0 4px; colo
 .chip.issue[aria-pressed="true"] { background: var(--type-issue); }
 .chip.decision[aria-pressed="true"] { background: var(--type-decision); }
 .chip.action[aria-pressed="true"] { background: var(--type-action); }
+.chip.dependency[aria-pressed="true"] { background: var(--type-dependency); }
 
 /* Table */
 .table-wrap { overflow-x: auto; border: 1px solid var(--brand-border); border-radius: 6px; background: var(--brand-surface); }
@@ -221,6 +224,7 @@ tbody tr.overdue td:first-child { box-shadow: inset 3px 0 0 var(--overdue); }
 .type-tag.Issue { background: var(--type-issue); }
 .type-tag.Decision { background: var(--type-decision); }
 .type-tag.Action { background: var(--type-action); }
+.type-tag.Dependency { background: var(--type-dependency); }
 
 .band { font-weight: 700; font-size: 12px; }
 .band.Low { color: var(--band-low); }
@@ -302,6 +306,7 @@ th.no-sort { cursor: default; }
 .type-select-row button.Issue[aria-pressed="true"] { background: var(--type-issue); }
 .type-select-row button.Decision[aria-pressed="true"] { background: var(--type-decision); }
 .type-select-row button.Action[aria-pressed="true"] { background: var(--type-action); }
+.type-select-row button.Dependency[aria-pressed="true"] { background: var(--type-dependency); }
 
 .proj-list { list-style: none; padding: 0; margin: 8px 0 0; }
 .proj-list li {
@@ -369,7 +374,7 @@ footer.appfoot {
 </div>
 
 <div class="banner hidden" id="editBanner">
-  Edit mode. Changes save to this file's local storage only. Use Download Updated Data to send changes back to the Project Manager.
+  Read/write access to this project. You can add, edit, and update entries. Changes save to this file's local storage only. Use Download Updated Data to send changes back to the Project Manager.
 </div>
 
 <div class="wrap">
@@ -434,22 +439,24 @@ footer.appfoot {
       <div class="admin-col" id="exportAdmin">
         <h2>Share files</h2>
         <div class="field">
-          <label style="display:flex; align-items:center; gap:8px; font-weight:600; text-transform:none; letter-spacing:0;">
-            <input type="checkbox" id="shareReadOnly" style="width:auto;"> Read only (recipients can view and filter but not edit)
-          </label>
+          <label for="shareAccess">Access level</label>
+          <select id="shareAccess">
+            <option value="EDIT">Full read / write</option>
+            <option value="VIEW">View only</option>
+          </select>
         </div>
         <div class="panel-row">
           <button class="primary" id="sharePortfolioBtn">Share full portfolio</button>
         </div>
         <hr class="section-divider">
         <div class="field">
-          <label for="exportProject">Single project</label>
+          <label for="exportProject">Client project</label>
           <select id="exportProject"></select>
         </div>
         <div class="panel-row">
           <button id="shareProjectBtn">Share this project</button>
         </div>
-        <p class="hint">By default recipients can update and filter their own copy but cannot add new entries. Tick read only to send a view-only copy. Each file is standalone and holds only the data shared in it. Access is file-based, not a secured system.</p>
+        <p class="hint">A client file contains only the project you share, never the full portfolio. Full read/write lets them add, edit, and update their own project and send changes back. View only is strictly read only. Access is file-based, not a secured system.</p>
       </div>
 
     </div>
@@ -488,6 +495,7 @@ footer.appfoot {
           <button class="chip issue" data-type="Issue" aria-pressed="false">Issue</button>
           <button class="chip decision" data-type="Decision" aria-pressed="false">Decision</button>
           <button class="chip action" data-type="Action" aria-pressed="false">Action</button>
+          <button class="chip dependency" data-type="Dependency" aria-pressed="false">Dependency</button>
         </div>
       </div>
       <div class="filter-field">
@@ -579,13 +587,12 @@ var EXPORT_ID = null;
 /* ---- Mode ---- */
 var MODE = EMBEDDED_MODE || "MASTER";  // MASTER | VIEW | EDIT
 var CAN_EDIT = (MODE === "MASTER" || MODE === "EDIT");
-var CAN_ADD = (MODE === "MASTER");
+var CAN_ADD = (MODE === "MASTER" || MODE === "EDIT");
 var IS_MASTER = (MODE === "MASTER");
 
 /* ---- Constants ---- */
-var TYPES = ["Risk", "Assumption", "Issue", "Decision", "Action"];
+var TYPES = ["Risk", "Assumption", "Issue", "Decision", "Action", "Dependency"];
 var PRIORITIES = ["High", "Medium", "Low"];
-var LEVELS = ["High", "Medium", "Low"];
 var MAX_PROJECTS = 7;
 
 var STATUS_BY_TYPE = {
@@ -593,16 +600,18 @@ var STATUS_BY_TYPE = {
   Assumption: ["Open", "Confirmed", "Invalidated", "Closed"],
   Issue: ["Open", "In Progress", "Resolved", "Closed", "Escalated"],
   Decision: ["Proposed", "Approved", "Rejected", "Deferred", "Implemented"],
-  Action: ["Open", "In Progress", "Completed", "Blocked", "Cancelled"]
+  Action: ["Open", "In Progress", "Completed", "Blocked", "Cancelled"],
+  Dependency: ["Open", "In Progress", "Delivered", "Blocked", "Closed"]
 };
-var CLOSED_STATUSES = ["Closed", "Resolved", "Implemented", "Completed", "Cancelled"];
+var CLOSED_STATUSES = ["Closed", "Resolved", "Implemented", "Completed", "Cancelled", "Delivered"];
 var RESPONSE_STRATEGIES = ["Avoid", "Transfer", "Mitigate", "Accept"];
 var VALIDATION_STATUSES = ["Unvalidated", "Confirmed", "Invalidated"];
+var DEPENDENCY_DIRECTIONS = ["Inbound", "Outbound", "Internal", "External"];
 var LEVEL_SCORE = { High: 3, Medium: 2, Low: 1 };
 
 /* ---- State ---- */
 var state = { meta: { company: "" }, projects: [], stakeholders: [], items: [], counter: 0 };
-var filters = { project: "", types: ["Risk", "Assumption", "Issue", "Decision"], owner: "", assigned: "", status: "", search: "" };
+var filters = { project: "", types: ["Risk", "Assumption", "Issue", "Decision", "Action", "Dependency"], owner: "", assigned: "", status: "", search: "" };
 var sort = { key: "id", dir: "asc" };
 var editingId = null;      // id of item being edited, or null for new
 var draftType = "Risk";    // type selected in the add/edit form
@@ -620,7 +629,7 @@ function loadData() {
     try { return normalize(JSON.parse(stored)); } catch (e) { /* fall through */ }
   }
   if (EMBEDDED_DATA) return normalize(clone(EMBEDDED_DATA));
-  if (IS_MASTER) return seedSample();
+  if (IS_MASTER) return blankState();
   return blankState();
 }
 
@@ -651,16 +660,16 @@ function normalize(s) {
   return s;
 }
 
-function seedSample() {
-  // Clean slate: no prepopulated projects, stakeholders, or items.
-  return blankState();
-}
-
 /* ---- ID and item helpers ---- */
 function nextId(s) {
   s.counter += 1;
   var n = String(s.counter);
   while (n.length < 3) n = "0" + n;
+  // In shared files, tag new ids with the export id so client-created items
+  // never collide with the master's own ids when merged back.
+  if (!IS_MASTER && EXPORT_ID) {
+    return "RAID-" + String(EXPORT_ID).substring(0, 4).toUpperCase() + "-" + n;
+  }
   return "RAID-" + n;
 }
 
@@ -707,7 +716,11 @@ function buildItem(data) {
     impactIfInvalid: data.impactIfInvalid || "",
     /* Action */
     expectedOutcome: data.expectedOutcome || "",
-    progressUpdate: data.progressUpdate || ""
+    progressUpdate: data.progressUpdate || "",
+    /* Dependency */
+    dependsOn: data.dependsOn || "",
+    dependencyDirection: data.dependencyDirection || "",
+    impactIfLate: data.impactIfLate || ""
   };
 }
 
@@ -898,6 +911,7 @@ function closeStatusFor(type) {
   if (type === "Decision") return "Implemented";
   if (type === "Issue") return "Resolved";
   if (type === "Action") return "Completed";
+  if (type === "Dependency") return "Delivered";
   return "Closed";
 }
 
@@ -938,7 +952,7 @@ function reopenItem(id) {
 function renderSummary() {
   var el = document.getElementById("summary");
   var items = state.items;
-  var counts = { Risk: 0, Assumption: 0, Issue: 0, Decision: 0, Action: 0 };
+  var counts = { Risk: 0, Assumption: 0, Issue: 0, Decision: 0, Action: 0, Dependency: 0 };
   var open = 0, closed = 0;
   items.forEach(function (it) {
     counts[it.type] = (counts[it.type] || 0) + 1;
@@ -955,6 +969,7 @@ function renderSummary() {
     stat("issue", counts.Issue, "Issues") +
     stat("decision", counts.Decision, "Decisions") +
     stat("action", counts.Action, "Actions") +
+    stat("dependency", counts.Dependency, "Dependencies") +
     stat("", open, "Open") +
     stat("", closed, "Closed");
 }
@@ -1068,8 +1083,8 @@ function renderDashboard() {
   empty.classList.add("hidden");
 
   // KPI tiles
-  var counts = { Risk: 0, Assumption: 0, Issue: 0, Decision: 0, Action: 0 };
-  var open = 0, closed = 0, overdue = 0, criticalRisks = 0, openIssues = 0, openActions = 0;
+  var counts = { Risk: 0, Assumption: 0, Issue: 0, Decision: 0, Action: 0, Dependency: 0 };
+  var open = 0, closed = 0, overdue = 0, criticalRisks = 0, openIssues = 0, openActions = 0, openDeps = 0;
   items.forEach(function (it) {
     counts[it.type] = (counts[it.type] || 0) + 1;
     var isClosed = CLOSED_STATUSES.indexOf(it.status) !== -1;
@@ -1081,6 +1096,7 @@ function renderDashboard() {
     }
     if (it.type === "Issue" && !isClosed) openIssues++;
     if (it.type === "Action" && !isClosed) openActions++;
+    if (it.type === "Dependency" && !isClosed) openDeps++;
   });
   function kpi(cls, num, lbl) {
     return "<div class='stat " + cls + "'><div class='num'>" + num + "</div><div class='lbl'>" + lbl + "</div></div>";
@@ -1092,9 +1108,10 @@ function renderDashboard() {
     kpi("", overdue, "Overdue") +
     kpi("risk", criticalRisks, "High/Critical risks") +
     kpi("issue", openIssues, "Open issues") +
-    kpi("action", openActions, "Open actions");
+    kpi("action", openActions, "Open actions") +
+    kpi("dependency", openDeps, "Open dependencies");
 
-  var TYPE_COLORS = { Risk: "var(--type-risk)", Assumption: "var(--type-assumption)", Issue: "var(--type-issue)", Decision: "var(--type-decision)", Action: "var(--type-action)" };
+  var TYPE_COLORS = { Risk: "var(--type-risk)", Assumption: "var(--type-assumption)", Issue: "var(--type-issue)", Decision: "var(--type-decision)", Action: "var(--type-action)", Dependency: "var(--type-dependency)" };
 
   var html = "";
 
@@ -1500,6 +1517,11 @@ function buildDrawerBody(item, mode) {
       html += "<hr class='section-divider'>";
       html += readonlyRow("Expected outcome", v.expectedOutcome);
       html += readonlyRow("Latest progress update", v.progressUpdate);
+    } else if (v.type === "Dependency") {
+      html += "<hr class='section-divider'>";
+      html += readonlyRow("Depends on", v.dependsOn);
+      html += readonlyRow("Direction", v.dependencyDirection);
+      html += readonlyRow("Impact if late or unmet", v.impactIfLate);
     }
     html += "<hr class='section-divider'>";
     html += readonlyRow("Notes", v.notes);
@@ -1598,6 +1620,10 @@ function buildTypeFields(v) {
   } else if (draftType === "Action") {
     html += fieldTextarea("f_expectedOutcome", "Expected outcome", v.expectedOutcome || "");
     html += fieldTextarea("f_progressUpdate", "Latest progress update", v.progressUpdate || "");
+  } else if (draftType === "Dependency") {
+    html += fieldText("f_dependsOn", "Depends on (party or deliverable)", v.dependsOn || "");
+    html += fieldSelect("f_dependencyDirection", "Direction", [""].concat(DEPENDENCY_DIRECTIONS), v.dependencyDirection || "");
+    html += fieldTextarea("f_impactIfLate", "Impact if late or unmet", v.impactIfLate || "");
   }
   return html;
 }
@@ -1701,6 +1727,10 @@ function saveItem() {
   } else if (draftType === "Action") {
     data.expectedOutcome = val("f_expectedOutcome");
     data.progressUpdate = val("f_progressUpdate");
+  } else if (draftType === "Dependency") {
+    data.dependsOn = val("f_dependsOn");
+    data.dependencyDirection = val("f_dependencyDirection");
+    data.impactIfLate = val("f_impactIfLate");
   }
 
   if (editingId) {
@@ -1868,7 +1898,7 @@ function wireFilters() {
     });
   });
   document.getElementById("clearFilters").addEventListener("click", function () {
-    filters = { project: "", types: ["Risk", "Assumption", "Issue", "Decision"], owner: "", assigned: "", status: "", search: "" };
+    filters = { project: "", types: ["Risk", "Assumption", "Issue", "Decision", "Action", "Dependency"], owner: "", assigned: "", status: "", search: "" };
     document.getElementById("fSearch").value = "";
     applyChipState();
     renderFilterOptions();
@@ -1929,13 +1959,13 @@ function wireActions() {
     document.getElementById("importJsonFile").addEventListener("change", function () {
       if (this.files && this.files[0]) { importJson(this.files[0]); this.value = ""; }
     });
-    function shareMode() { return document.getElementById("shareReadOnly").checked ? "VIEW" : "EDIT"; }
+    function shareMode() { return document.getElementById("shareAccess").value === "VIEW" ? "VIEW" : "EDIT"; }
     document.getElementById("sharePortfolioBtn").addEventListener("click", function () {
       exportFile("", shareMode());
     });
     document.getElementById("shareProjectBtn").addEventListener("click", function () {
       var p = document.getElementById("exportProject").value;
-      if (!p) { alert("Choose a project to share."); return; }
+      if (!p) { alert("Choose a client project to share."); return; }
       exportFile(p, shareMode());
     });
   }

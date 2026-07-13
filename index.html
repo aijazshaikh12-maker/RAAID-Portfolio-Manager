@@ -351,8 +351,17 @@ footer.appfoot {
 /* Dashboard */
 .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
 .chart-card { background: var(--brand-surface); border: 1px solid var(--brand-border); border-radius: 6px; padding: 14px 16px; }
-.chart-card h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand-muted); }
-.chart-card svg { display: block; width: 100%; height: auto; }
+.chart-card h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--brand-muted); display: flex; align-items: center; gap: 7px; }
+.info-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: var(--brand-accent); color: #fff;
+  font-size: 10px; font-weight: 700; font-style: normal;
+  text-transform: none; letter-spacing: 0; flex: 0 0 auto;
+}
+.stat[title] { cursor: default; }
+.chart-card svg [title], .chart-card svg rect, .chart-card svg path, .chart-card svg circle { cursor: default; }
+.matrix td[title] { cursor: default; }
 .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 12px; }
 .legend .key { display: inline-flex; align-items: center; gap: 6px; color: var(--brand-ink); }
 .legend .sw { width: 12px; height: 12px; border-radius: 2px; display: inline-block; }
@@ -638,13 +647,14 @@ function saveData() {
   try { localStorage.setItem(storageKey(), JSON.stringify(state)); } catch (e) { /* storage may be blocked */ }
 }
 
-function blankState() { return { meta: { company: "" }, projects: [], stakeholders: [], items: [], counter: 0 }; }
+function blankState() { return { meta: { company: "", lastProject: "" }, projects: [], stakeholders: [], items: [], counter: 0 }; }
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
 function normalize(s) {
   s = s || {};
   s.meta = s.meta && typeof s.meta === "object" ? s.meta : { company: "" };
   if (typeof s.meta.company !== "string") s.meta.company = "";
+  if (typeof s.meta.lastProject !== "string") s.meta.lastProject = "";
   s.projects = Array.isArray(s.projects) ? s.projects : [];
   s.stakeholders = Array.isArray(s.stakeholders) ? s.stakeholders.map(function (st) {
     if (typeof st === "string") return { name: st, project: "", email: "" };
@@ -1098,18 +1108,18 @@ function renderDashboard() {
     if (it.type === "Action" && !isClosed) openActions++;
     if (it.type === "Dependency" && !isClosed) openDeps++;
   });
-  function kpi(cls, num, lbl) {
-    return "<div class='stat " + cls + "'><div class='num'>" + num + "</div><div class='lbl'>" + lbl + "</div></div>";
+  function kpi(cls, num, lbl, tip) {
+    return "<div class='stat " + cls + "' title='" + esc(tip) + "'><div class='num'>" + num + "</div><div class='lbl'>" + esc(lbl) + "</div></div>";
   }
   kpis.innerHTML =
-    kpi("", items.length, "Total RAID items") +
-    kpi("", open, "Open") +
-    kpi("", closed, "Closed") +
-    kpi("", overdue, "Overdue") +
-    kpi("risk", criticalRisks, "High/Critical risks") +
-    kpi("issue", openIssues, "Open issues") +
-    kpi("action", openActions, "Open actions") +
-    kpi("dependency", openDeps, "Open dependencies");
+    kpi("", items.length, "Total RAID items", "Every RAID item in the current view (all types combined).") +
+    kpi("", open, "Open", "Items that are not yet in a terminal status.") +
+    kpi("", closed, "Closed", "Items in a finished status: Closed, Resolved, Implemented, Completed, Cancelled, or Delivered.") +
+    kpi("", overdue, "Overdue", "Open items whose due date is in the past.") +
+    kpi("risk", criticalRisks, "High/Critical risks", "Open risks with an exposure score of 6 (High) or 9 (Critical).") +
+    kpi("issue", openIssues, "Open issues", "Issues not yet resolved or closed.") +
+    kpi("action", openActions, "Open actions", "Action items not yet completed or cancelled.") +
+    kpi("dependency", openDeps, "Open dependencies", "Dependencies not yet delivered or closed.");
 
   var TYPE_COLORS = { Risk: "var(--type-risk)", Assumption: "var(--type-assumption)", Issue: "var(--type-issue)", Decision: "var(--type-decision)", Action: "var(--type-action)", Dependency: "var(--type-dependency)" };
 
@@ -1118,14 +1128,18 @@ function renderDashboard() {
   // Chart 1: items by type (donut)
   var typeData = TYPES.map(function (t) { return { label: t, value: counts[t] || 0, color: TYPE_COLORS[t] }; })
     .filter(function (d) { return d.value > 0; });
-  html += "<div class='chart-card'><h3>Items by type</h3>" + donutSvg(typeData) + legendHtml(typeData) + "</div>";
+  html += chartCard("Items by type",
+    "Share of RAID items by category. Each ring segment is one type (Risk, Assumption, Issue, Decision, Action, Dependency); the number in the middle is the total count. Hover a segment for its exact count and percentage.",
+    donutSvg(typeData) + legendHtml(typeData));
 
   // Chart 2: open vs closed (donut)
   var ocData = [
     { label: "Open", value: open, color: "var(--band-high)" },
     { label: "Closed", value: closed, color: "var(--band-low)" }
   ].filter(function (d) { return d.value > 0; });
-  html += "<div class='chart-card'><h3>Open vs closed</h3>" + donutSvg(ocData) + legendHtml(ocData) + "</div>";
+  html += chartCard("Open vs closed",
+    "How many items are still active versus finished. Open means any non-terminal status; Closed covers Closed, Resolved, Implemented, Completed, Cancelled, and Delivered.",
+    donutSvg(ocData) + legendHtml(ocData));
 
   // Chart 3: items by status (horizontal bars)
   var statusMap = {};
@@ -1133,7 +1147,9 @@ function renderDashboard() {
   var statusData = Object.keys(statusMap).sort().map(function (s) {
     return { label: s, value: statusMap[s], color: "var(--brand-accent)" };
   });
-  html += "<div class='chart-card'><h3>Items by status</h3>" + barSvg(statusData) + "</div>";
+  html += chartCard("Items by status",
+    "Count of items at each lifecycle stage, combined across every type. Longer bars mean more items sitting in that stage right now.",
+    barSvg(statusData));
 
   // Chart 4: priority (horizontal bars)
   var priMap = { High: 0, Medium: 0, Low: 0 };
@@ -1143,7 +1159,9 @@ function renderDashboard() {
     { label: "Medium", value: priMap.Medium, color: "var(--priority-medium)" },
     { label: "Low", value: priMap.Low, color: "var(--priority-low)" }
   ];
-  html += "<div class='chart-card'><h3>Items by priority</h3>" + barSvg(priData) + "</div>";
+  html += chartCard("Items by priority",
+    "How the current items split across High, Medium, and Low priority. Use it to see where attention is concentrated.",
+    barSvg(priData));
 
   // Chart 5: items by project (only meaningful across projects)
   if (!dashProjectFilter && state.projects.length > 1) {
@@ -1152,13 +1170,24 @@ function renderDashboard() {
     var projData = Object.keys(projMap).sort().map(function (p) {
       return { label: p, value: projMap[p], color: "var(--brand-primary)" };
     });
-    html += "<div class='chart-card'><h3>Items by project</h3>" + barSvg(projData) + "</div>";
+    html += chartCard("Items by project",
+      "Number of RAID items in each project. This chart appears only when you are viewing all projects, so you can compare load across the portfolio.",
+      barSvg(projData));
   }
 
   // Chart 6: risk exposure matrix (probability x impact)
-  html += "<div class='chart-card'><h3>Risk exposure matrix</h3>" + riskMatrixHtml(items) + "</div>";
+  html += chartCard("Risk exposure matrix",
+    "Open, scored risks plotted by Probability (rows) against Impact (columns). Cell color shows the exposure band (green Low, amber Medium, orange High, red Critical) and the number is how many risks fall in that Probability and Impact combination. Hover a cell for details.",
+    riskMatrixHtml(items));
 
   charts.innerHTML = html;
+}
+
+/* Wraps a chart in a titled card with a hoverable info badge explaining it. */
+function chartCard(title, tip, body) {
+  return "<div class='chart-card'><h3>" + esc(title) +
+    " <span class='info-badge' title='" + esc(tip) + "' aria-label='" + esc(tip) + "'>i</span></h3>" +
+    body + "</div>";
 }
 
 function legendHtml(data) {
@@ -1177,6 +1206,8 @@ function donutSvg(data) {
   var paths = "";
   data.forEach(function (d) {
     var frac = d.value / total;
+    var pct = Math.round(frac * 100);
+    var tip = esc(d.label + ": " + d.value + " item" + (d.value === 1 ? "" : "s") + " (" + pct + "%)");
     var end = angle + frac * Math.PI * 2;
     // full circle guard
     var large = (end - angle) > Math.PI ? 1 : 0;
@@ -1185,13 +1216,13 @@ function donutSvg(data) {
     var ix2 = cx + inner * Math.cos(end), iy2 = cy + inner * Math.sin(end);
     var ix1 = cx + inner * Math.cos(angle), iy1 = cy + inner * Math.sin(angle);
     if (data.length === 1) {
-      paths += "<circle cx='" + cx + "' cy='" + cy + "' r='" + ((r + inner) / 2) + "' fill='none' stroke='" + d.color + "' stroke-width='" + (r - inner) + "'></circle>";
+      paths += "<circle cx='" + cx + "' cy='" + cy + "' r='" + ((r + inner) / 2) + "' fill='none' stroke='" + d.color + "' stroke-width='" + (r - inner) + "'><title>" + tip + "</title></circle>";
     } else {
       paths += "<path d='M " + x1.toFixed(2) + " " + y1.toFixed(2) +
         " A " + r + " " + r + " 0 " + large + " 1 " + x2.toFixed(2) + " " + y2.toFixed(2) +
         " L " + ix2.toFixed(2) + " " + iy2.toFixed(2) +
         " A " + inner + " " + inner + " 0 " + large + " 0 " + ix1.toFixed(2) + " " + iy1.toFixed(2) +
-        " Z' fill='" + d.color + "'></path>";
+        " Z' fill='" + d.color + "'><title>" + tip + "</title></path>";
     }
     angle = end;
   });
@@ -1214,8 +1245,9 @@ function barSvg(data) {
     var top = i * rowH;
     var barY = top + labelH;
     var bw = Math.max(2, (d.value / max) * barMax);
+    var tip = esc(d.label + ": " + d.value + " item" + (d.value === 1 ? "" : "s"));
     return "<text x='" + leftPad + "' y='" + (top + 13) + "' font-size='12' fill='var(--brand-ink)'>" + esc(d.label) + "</text>" +
-      "<rect x='" + leftPad + "' y='" + barY + "' width='" + bw.toFixed(1) + "' height='" + barH + "' rx='3' fill='" + d.color + "'></rect>" +
+      "<rect x='" + leftPad + "' y='" + barY + "' width='" + bw.toFixed(1) + "' height='" + barH + "' rx='3' fill='" + d.color + "'><title>" + tip + "</title></rect>" +
       "<text x='" + (leftPad + bw + 6) + "' y='" + (barY + barH - 3) + "' font-size='12' font-weight='700' fill='var(--brand-ink)'>" + d.value + "</text>";
   }).join("");
   return "<svg viewBox='0 0 " + w + " " + h + "' role='img'>" + rows + "</svg>";
@@ -1242,7 +1274,9 @@ function riskMatrixHtml(items) {
       var score = LEVEL_SCORE[p] * LEVEL_SCORE[im];
       var bg = n ? bandColor(score) : "var(--brand-surface)";
       var fg = n ? "#fff" : "var(--brand-muted)";
-      return "<td style='background:" + bg + "; color:" + fg + "'><span class='cell-count'>" + (n || "") + "</span></td>";
+      var tip = esc("Probability " + p + ", Impact " + im + ": " + n + " risk" + (n === 1 ? "" : "s") +
+        " (score " + score + ", " + exposureBand(score) + " exposure)");
+      return "<td title='" + tip + "' style='background:" + bg + "; color:" + fg + "'><span class='cell-count'>" + (n || "") + "</span></td>";
     }).join("");
     return "<tr><th class='axis-label'>" + p + "</th>" + cells + "</tr>";
   }).join("");
@@ -1535,7 +1569,12 @@ function buildDrawerBody(item, mode) {
 
   var projOptions = state.projects.slice();
   if (v.project && projOptions.indexOf(v.project) === -1) projOptions.push(v.project);
-  var currentProject = v.project || projOptions[0] || "";
+  // For a new item, default the project (client) to the one most recently used.
+  var defaultProject = projOptions[0] || "";
+  if (mode === "add" && state.meta.lastProject && projOptions.indexOf(state.meta.lastProject) !== -1) {
+    defaultProject = state.meta.lastProject;
+  }
+  var currentProject = v.project || defaultProject;
   html += fieldSelect("f_project", "Project", projOptions.length ? projOptions : ["(no projects yet)"], currentProject, true);
   html += fieldText("f_title", "Title", v.title || "", true);
   html += fieldTextarea("f_description", "Description", v.description || "");
@@ -1746,6 +1785,8 @@ function saveItem() {
   } else {
     addItemToState(state, data);
   }
+  // Remember the project (client) just used so the next new item defaults to it.
+  state.meta.lastProject = data.project;
   saveData();
   closeDrawer();
   renderAll();
